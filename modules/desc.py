@@ -1,3 +1,5 @@
+'''Descriptions module'''
+
 G_TOOL_DEFINITION = '''
 This image creation tool takes multiple ELF files supposed to be loaded into different CPUs of an SOC and combines them 
 into one single ELF image with merged segments. There is also an option to specify the metadata which will go in as a note 
