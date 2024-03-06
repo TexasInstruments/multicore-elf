@@ -56,7 +56,7 @@ class MultiCoreELF():
         return (i_range and a_range)
 
     def generate_multicoreelf(self, dump_segments=False, segmerge=False,
-                            tol_limit=0, ignore_context=False):
+                            tol_limit=0, ignore_context=False, xlat_file_path=None):
         '''Function to finally generate the multicore elf file'''
         # check if metadata is added
         if not self.metadata_added:
@@ -91,7 +91,7 @@ class MultiCoreELF():
                             ignore_context=ignore_context)
         # add note segment
         # make final elf
-        elf_obj.make_elf(self.ofname)
+        elf_obj.make_elf(self.ofname, xlat_file_path=xlat_file_path)
 
         if dump_segments:
             elf_obj.dbg_dumpsegments()

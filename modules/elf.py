@@ -2,6 +2,7 @@
 from elftools.elf.elffile import Segment
 from .elf_structs import elf_header, elf_prog_header
 from .elf_structs import ElfConstants as ELFC, PT_TYPE_DICT
+from .addtranslate import address_translate as xlat
 
 class ELFHeader():
     '''ELF Header'''
@@ -228,12 +229,19 @@ class ELF():
         for seg in self.segmentlist:
             print(f"{seg['header'].header}, SIZE = {hex(len(seg['data']))} : {seg['context']}")
 
-    def make_elf(self, fname):
+    def make_elf(self, fname, xlat_file_path):
         '''Create the elf file and write it to the filename provided'''
         # check if elf header is added
         if not self.eh_added:
             self.log_error("ELF Header not added")
             return -1
+        
+        # do address translation if required
+        if(xlat_file_path != None):
+            for seg in self.segmentlist:
+                seg['header'].header.vaddr = xlat(xlat_file_path=xlat_file_path, coreid=int(seg['context']), addr=seg['header'].header.vaddr)
+
+                seg['header'].header.paddr = xlat(xlat_file_path=xlat_file_path, coreid=int(seg['context']), addr=seg['header'].header.paddr)
 
         # generate PHT
         self.__generate_pht()

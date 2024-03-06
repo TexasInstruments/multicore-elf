@@ -31,8 +31,10 @@ def get_args():
     my_parser.add_argument('-m', '--metadata', required=False)
     my_parser.add_argument('--merge-segments', required=False, default=False, action='store_true')
     my_parser.add_argument('-t', '--tolerance-limit', type=int, required=False, default=0)
-    my_parser.add_argument('-o', '--output', required=False, default='multicoreelf.out')
+    my_parser.add_argument('--ignore-context', required=False, default=False, action='store_true')
+    my_parser.add_argument('-o', '--output', required=False, default='multicore_elf.out')
     my_parser.add_argument('--xip', required=False, type=xip_addr_type, default=None)
+    my_parser.add_argument('--xlat', required=False, default=None)
 
     return my_parser.parse_args()
 

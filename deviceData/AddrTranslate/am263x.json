@@ -1,0 +1,65 @@
+{
+    "numcores" : 4,
+    "cores" : {
+        "r5fss0-0" : {
+            "numregions": 2,
+            "info" : [
+                {
+                    "cpulocaladdr" : "0x00000000",
+                    "socaddr" : "0x00000000",
+                    "regionsize" : "0x00010000"
+                },
+                {
+                    "cpulocaladdr" : "0x00080000",
+                    "socaddr" : "0x00080000",
+                    "regionsize" : "0x00010000"
+                }
+            ]
+        },
+        "r5fss0-1" : {
+            "numregions": 2,
+            "info" : [
+                {
+                    "cpulocaladdr" : "0x00000000",
+                    "socaddr" : "0x00008000",
+                    "regionsize" : "0x00008000"
+                },
+                {
+                    "cpulocaladdr" : "0x00080000",
+                    "socaddr" : "0x00088000",
+                    "regionsize" : "0x00008000"
+                }
+            ]
+        },
+        "r5fss1-0" : {
+            "numregions": 2,
+            "info" : [
+                {
+                    "cpulocaladdr" : "0x00000000",
+                    "socaddr" : "0x78400000",
+                    "regionsize" : "0x00010000"
+                },
+                {
+                    "cpulocaladdr" : "0x00080000",
+                    "socaddr" : "0x78500000",
+                    "regionsize" : "0x00010000"
+                }
+            ]
+        },
+        "r5fss1-1" : {
+            "numregions": 2,
+            "info" : [
+                {
+                    "cpulocaladdr" : "0x00000000",
+                    "socaddr" : "0x78600000",
+                    "regionsize" : "0x00008000"
+                },
+                {
+                    "cpulocaladdr" : "0x00080000",
+                    "socaddr" : "0x78700000",
+                    "regionsize" : "0x00008000"
+                }
+            ]
+        }
+    }
+}

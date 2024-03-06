@@ -10,7 +10,9 @@ def generate_image(arguments, m_elf: MultiCoreELF):
     m_elf.add_metadata()
 
     m_elf.generate_multicoreelf(segmerge=arguments.merge_segments,
-                                tol_limit=arguments.tolerance_limit)
+                                tol_limit=arguments.tolerance_limit,
+                                ignore_context=arguments.ignore_context,
+                                xlat_file_path=arguments.xlat)
 
 def main():
     '''Main function'''
