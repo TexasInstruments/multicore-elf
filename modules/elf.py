@@ -3,6 +3,8 @@ from elftools.elf.elffile import Segment
 from .elf_structs import elf_header, elf_prog_header
 from .elf_structs import ElfConstants as ELFC, PT_TYPE_DICT
 from .addtranslate import address_translate as xlat
+from .note import get_note_vendor, get_note_segment_map, \
+                get_note_custom, get_note_entrypoints, CustomNote
 
 class ELFHeader():
     '''ELF Header'''
@@ -56,26 +58,26 @@ class ELFProgramHeader():
         else:
             self.size = ELFC.ELFPH32_SIZE.value
 
-        if isinstance(data, Segment):
-            self.data = data
-        else:
-            raise ValueError("Input data must be of Segment type")
-
         self.format = elf_prog_header(self.islittle, self.is64)
         self.header = self.format.parse(bytearray(self.size))
 
-        self.header.type = PT_TYPE_DICT[data.header['p_type']]
-        if is64:
-            self.header.flags_64 = data.header['p_flags']
-        else:
-            self.header.flags_32 = data.header['p_flags']
+        if isinstance(data, Segment):
+            self.data = data    
+            self.header.type = PT_TYPE_DICT[data.header['p_type']]
+            if is64:
+                self.header.flags_64 = data.header['p_flags']
+            else:
+                self.header.flags_32 = data.header['p_flags']
 
-        self.header.offset = data.header['p_offset']
-        self.header.vaddr  = data.header['p_vaddr']
-        self.header.paddr  = data.header['p_paddr']
-        self.header.filesz = data.header['p_filesz']
-        self.header.memsz  = data.header['p_memsz']
-        self.header.align  = data.header['p_align']
+            self.header.offset = data.header['p_offset']
+            self.header.vaddr  = data.header['p_vaddr']
+            self.header.paddr  = data.header['p_paddr']
+            self.header.filesz = data.header['p_filesz']
+            self.header.memsz  = data.header['p_memsz']
+            self.header.align  = data.header['p_align']
+        else:
+            # empty segment header, useful for note segment
+            pass
 
     def get_size(self):
         '''Function to get the serialized size of header'''
@@ -87,20 +89,17 @@ class ELFProgramHeader():
 
 class ELF():
     '''ELF Class'''
-    def __init__(self, little_endian=True, b_log=True) -> None:
+    def __init__(self, little_endian=True, is64=False) -> None:
         self.little_endian = little_endian
         self.eh_added = False
         self.bstream = bytearray()
         self.segmentlist = list()
-        self.b_log = b_log
+        self.is64 = is64
         self.elfheader = None
 
     def log_error(self, my_str: str):
         '''Error logging function'''
-        if self.b_log:
-            print(f"[ERROR] : {my_str} !!!")
-        else:
-            pass
+        print(f"[ERROR] : {my_str} !!!")
 
     def add_eheader_fromb(self, b_array : bytearray):
         '''Function to add ELF header from a bytearray'''
@@ -112,14 +111,42 @@ class ELF():
         self.elfheader = ELFHeader(elf_fname)
         self.eh_added = True
 
-    def add_segment(self, phent: ELFProgramHeader, segdata = None, context = 0):
+    def add_segment(self, phent: ELFProgramHeader, segdata = None, context = None):
         '''Function to add segment to the internal segment list'''
         self.segmentlist.append({"header": phent, "data": segdata, "context": context})
 
     def add_segment_from_elf(self, segment, context = 0):
         '''Function to add segment from ELFFile segment list'''
-        phent = ELFProgramHeader(segment)
+        phent = ELFProgramHeader(segment, little_endian=self.little_endian, is64=self.is64)
         self.add_segment(phent=phent, segdata=bytearray(segment.data()), context=context)
+
+    def __add_note_segment(self, eplist, custom_note: CustomNote = None):
+        note_data = bytearray(0)
+
+        # add vendor id note
+        note_data.extend(get_note_vendor(self.little_endian))
+
+        # add segment list note
+        core_list = [int(seg['context']) for seg in self.segmentlist]
+        note_data.extend(get_note_segment_map(self.little_endian, core_list))
+
+        # add entry point list note
+        note_data.extend(get_note_entrypoints(self.little_endian, self.is64, eplist))
+
+        # add custom note if any
+        if custom_note is not None:
+            note_data.extend(get_note_custom(self.little_endian, custom_note))
+
+        r_seg = ELFProgramHeader(None, little_endian=self.little_endian, is64=self.is64)
+        r_seg.header.type = PT_TYPE_DICT['PT_NOTE']
+        r_seg.header.vaddr = 0
+        r_seg.header.paddr = 0
+        r_seg.header.filesz = len(note_data)
+        r_seg.header.memsz = len(note_data)
+
+        seg_dict = {"header": r_seg, "data": note_data, "context": None}
+
+        self.segmentlist.insert(0, seg_dict)
 
     def __merge_two_segments(self, merger, mergee):
         if merger is None:
@@ -229,19 +256,24 @@ class ELF():
         for seg in self.segmentlist:
             print(f"{seg['header'].header}, SIZE = {hex(len(seg['data']))} : {seg['context']}")
 
-    def make_elf(self, fname, xlat_file_path):
+    def make_elf(self, fname, xlat_file_path, eplist, custom_note: CustomNote = None):
         '''Create the elf file and write it to the filename provided'''
         # check if elf header is added
         if not self.eh_added:
             self.log_error("ELF Header not added")
             return -1
-        
-        # do address translation if required
-        if(xlat_file_path != None):
-            for seg in self.segmentlist:
-                seg['header'].header.vaddr = xlat(xlat_file_path=xlat_file_path, coreid=int(seg['context']), addr=seg['header'].header.vaddr)
 
-                seg['header'].header.paddr = xlat(xlat_file_path=xlat_file_path, coreid=int(seg['context']), addr=seg['header'].header.paddr)
+        # do address translation if required
+        if xlat_file_path is not None:
+            for seg in self.segmentlist:
+                seg['header'].header.vaddr = xlat(xlat_file_path=xlat_file_path,
+                coreid=int(seg['context']), addr=seg['header'].header.vaddr)
+
+                seg['header'].header.paddr = xlat(xlat_file_path=xlat_file_path,
+                coreid=int(seg['context']), addr=seg['header'].header.paddr)
+
+        # add note segments
+        self.__add_note_segment(eplist, custom_note)
 
         # generate PHT
         self.__generate_pht()
@@ -262,3 +294,6 @@ class ELF():
             file_p.write(self.bstream)
 
         return 0
+
+if __name__ == "__main__":
+    pass

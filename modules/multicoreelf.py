@@ -3,6 +3,8 @@ import os
 from elftools.elf.elffile import ELFFile
 from .elf import ELF
 from .elf_structs import ElfConstants as ELFC
+from .consts import SSO_CORE_ID
+from .note import CustomNote
 
 class MultiCoreELF():
     '''Multicore ELF Object'''
@@ -14,6 +16,7 @@ class MultiCoreELF():
         self.ofname = ofname
         self.ignore_range = ignore_range
         self.accept_range = accept_range
+        self.eplist = {}
 
     def log_error(self, err_str: str):
         '''Error logging fxn'''
@@ -26,9 +29,9 @@ class MultiCoreELF():
         core_id, filename = fname.split(delim)
         self.elf_file_list[core_id] = os.path.realpath(filename)
 
-    def add_metadata(self):
-        '''Function to add metadata from file'''
-        self.metadata_added = True
+    def add_sso(self, fname: str):
+        '''Function to add an input SSO file to list'''
+        self.elf_file_list[SSO_CORE_ID] = os.path.realpath(fname)
 
     def __check_for_elf64(self):
         class_index = ELFC.ELFCLASS_IDX.value
@@ -56,13 +59,8 @@ class MultiCoreELF():
         return (i_range and a_range)
 
     def generate_multicoreelf(self, dump_segments=False, segmerge=False,
-                            tol_limit=0, ignore_context=False, xlat_file_path=None):
+        tol_limit=0, ignore_context=False, xlat_file_path=None, custom_note: CustomNote = None):
         '''Function to finally generate the multicore elf file'''
-        # check if metadata is added
-        if not self.metadata_added:
-            self.log_error("Metadata not added to Object")
-            return -1
-
         # Check if there are any 64 bit ELFs in the list
         is64, core64 = self.__check_for_elf64()
 
@@ -81,6 +79,7 @@ class MultiCoreELF():
         for core_id, fname in self.elf_file_list.items():
             elf_fp = open(fname, 'rb')
             elf_o = ELFFile(elf_fp)
+            self.eplist[core_id] = elf_o.header['e_entry']
             for segment in elf_o.iter_segments(type='PT_LOAD'):
                 if (segment.header['p_filesz'] != 0) and self.__check_range(segment.header):
                     elf_obj.add_segment_from_elf(segment, context=core_id)
@@ -91,9 +90,12 @@ class MultiCoreELF():
                             ignore_context=ignore_context)
         # add note segment
         # make final elf
-        elf_obj.make_elf(self.ofname, xlat_file_path=xlat_file_path)
+        elf_obj.make_elf(self.ofname, xlat_file_path, self.eplist, custom_note=custom_note)
 
         if dump_segments:
             elf_obj.dbg_dumpsegments()
 
         return 0
+
+if __name__ == "__main__":
+    pass

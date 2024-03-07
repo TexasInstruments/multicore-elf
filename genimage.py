@@ -1,18 +1,22 @@
 '''Main script to generate the multicore ELF image'''
 from modules.args import get_args
 from modules.multicoreelf import MultiCoreELF
+from modules.note import CustomNote
 
-def generate_image(arguments, m_elf: MultiCoreELF):
+def generate_image(arguments, m_elf: MultiCoreELF, custom_note: CustomNote = None):
     '''Helper function to generate image'''
     for ifname in arguments.core_img:
         m_elf.add_elf(ifname[0])
 
-    m_elf.add_metadata()
+    if arguments.sso is not None:
+        for ifname in arguments.sso:
+            m_elf.add_sso(ifname[0])
 
     m_elf.generate_multicoreelf(segmerge=arguments.merge_segments,
                                 tol_limit=arguments.tolerance_limit,
                                 ignore_context=arguments.ignore_context,
-                                xlat_file_path=arguments.xlat)
+                                xlat_file_path=arguments.xlat,
+                                custom_note=custom_note)
 
 def main():
     '''Main function'''

@@ -21,3 +21,6 @@ This argument is used to specify the output file name.
 G_METADATA_DEFINITION = '''
 This argument is used to specify metadata file.
 '''
+
+if __name__ == "__main__":
+    pass

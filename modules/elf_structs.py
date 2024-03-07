@@ -75,3 +75,6 @@ def elf_prog_header(is_le=True, is_64=False):
     if is_le:
         return __elf_prog_header(Int32ul, Int64ul, is_64=is_64)
     return __elf_prog_header(Int32ub, Int64ub, is_64=is_64)
+
+if __name__ == "__main__":
+    pass

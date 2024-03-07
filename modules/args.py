@@ -28,7 +28,6 @@ def get_args():
     my_parser = argparse.ArgumentParser(description=desc.G_TOOL_DEFINITION)
     my_parser.add_argument('-i', '--core-img', required=True, action='append', nargs='*')
     my_parser.add_argument('-s', '--sso', required=False, action='append', nargs='*')
-    my_parser.add_argument('-m', '--metadata', required=False)
     my_parser.add_argument('--merge-segments', required=False, default=False, action='store_true')
     my_parser.add_argument('-t', '--tolerance-limit', type=int, required=False, default=0)
     my_parser.add_argument('--ignore-context', required=False, default=False, action='store_true')
