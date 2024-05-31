@@ -17,7 +17,7 @@ def xip_addr_type(arg_val: str) -> tuple:
 
 
     if end_addr <= start_addr:
-        raise argparse.ArgumentTypeError('XIP end start address is less than start address')
+        raise argparse.ArgumentTypeError('XIP end address is less than start address')
 
     addr_range = namedtuple('AddressRange', ['start', 'end'])
 
@@ -26,13 +26,13 @@ def xip_addr_type(arg_val: str) -> tuple:
 def get_args():
     '''Abstraction layer to fetch arguments via argparse module'''
     my_parser = argparse.ArgumentParser(description=desc.G_TOOL_DEFINITION)
-    my_parser.add_argument('-i', '--core-img', required=True, action='append', nargs='*')
+    my_parser.add_argument('-i', '--core-img', required=True, action='append', nargs='*', help='Specify the individual ELF images. To be specified as core_num:ELF_image. Example: --core-img=0:core0_binary.out')
     my_parser.add_argument('-s', '--sso', required=False, action='append', nargs='*')
     my_parser.add_argument('--merge-segments', required=False, default=False, action='store_true')
     my_parser.add_argument('-t', '--tolerance-limit', type=int, required=False, default=0)
     my_parser.add_argument('--ignore-context', required=False, default=False, action='store_true')
     my_parser.add_argument('-o', '--output', required=False, default='multicore_elf.out')
-    my_parser.add_argument('--xip', required=False, type=xip_addr_type, default=None)
+    my_parser.add_argument('--xip', required=False, type=xip_addr_type, default=None,help='Provide the start and end address seperated by colon. This will generate {multicore_elf.out_xip}. Example: --xip=0x60100000:0x60200000')
     my_parser.add_argument('--xlat', required=False, default=None)
 
     return my_parser.parse_args()
