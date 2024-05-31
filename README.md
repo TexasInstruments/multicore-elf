@@ -2,6 +2,15 @@
 
 Takes multiple ELF files as input and combines their segments to create a minimal single ELF file with ELF header, program header table, custom note segment and the data segments.
 
+### Prerequisites
+
+Install the following packages in your system -
+
+```
+pip install pyelftools
+pip install constructs
+```
+
 ### Script arguments
 
 1. --core-img : Path to individual binaries of each core. It is a mandatory argument. Input is given in this format - 
