@@ -22,6 +22,9 @@ def main():
     '''Main function'''
     arguments = get_args()
 
+    if arguments.xlat is not None and arguments.xlat.strip() == "":
+        arguments.xlat = None
+
     is_xip = bool(arguments.xip is not None)
 
     ignore_range = None
