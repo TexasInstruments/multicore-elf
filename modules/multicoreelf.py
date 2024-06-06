@@ -65,7 +65,7 @@ class MultiCoreELF():
         is64, core64 = self.__check_for_elf64()
 
         # Instantiate ELF object and add headers and data to it
-        elf_obj = ELF(little_endian=self.little_endian)
+        elf_obj = ELF(little_endian=self.little_endian, is64=is64)
 
         # pick elf header of main core and add the segments to ELF object
         # if there are ELF64s, copy ELF header from the ELF64. Else pick the first one
