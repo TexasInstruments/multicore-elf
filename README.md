@@ -8,7 +8,7 @@ Install the following packages in your system -
 
 ```
 pip install pyelftools
-pip install constructs
+pip install construct
 ```
 
 ### Script arguments
