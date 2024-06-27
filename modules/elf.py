@@ -249,6 +249,7 @@ class ELF():
         self.elfheader.header.e_phoff = self.elfheader.get_size()
         self.elfheader.header.e_shoff = 0
         self.elfheader.header.e_shnum = 0
+        self.elfheader.header.e_shstrndx = 0
         self.bstream.extend(self.elfheader.pack())
 
     def dbg_dumpsegments(self):
