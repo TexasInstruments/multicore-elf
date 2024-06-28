@@ -1,5 +1,10 @@
 '''Multicore ELF module'''
+
+import sys
 import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.abspath(os.path.dirname(__file__)), "../pkgs")))
+
 from elftools.elf.elffile import ELFFile
 from .elf import ELF
 from .elf_structs import ElfConstants as ELFC
