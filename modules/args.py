@@ -8,7 +8,7 @@ def xip_addr_type(arg_val: str) -> tuple:
 
     if arg_val == 'none' or arg_val == 'None':
         return None
-    
+
     parts = arg_val.split(':')
     if len(parts) != 2:
         raise argparse.ArgumentTypeError('Invalid XIP arguments')
@@ -29,14 +29,22 @@ def xip_addr_type(arg_val: str) -> tuple:
 def get_args():
     '''Abstraction layer to fetch arguments via argparse module'''
     my_parser = argparse.ArgumentParser(description=desc.G_TOOL_DEFINITION)
-    my_parser.add_argument('-i', '--core-img', required=True, action='append', nargs='*', help='Specify the individual ELF images. To be specified as core_num:ELF_image. Example: --core-img=0:core0_binary.out')
+    my_parser.add_argument('-i', '--core-img', required=True, action='append', nargs='*', \
+                           help='Specify the individual ELF images. \
+                            To be specified as core_num:ELF_image. \
+                                Example: --core-img=0:core0_binary.out')
     my_parser.add_argument('-s', '--sso', required=False, action='append', nargs='*')
     my_parser.add_argument('--merge-segments', required=False, default=False)
     my_parser.add_argument('-t', '--tolerance-limit', type=int, required=False, default=0)
     my_parser.add_argument('--ignore-context', required=False, default=False)
     my_parser.add_argument('-o', '--output', required=True)
-    my_parser.add_argument('--xip', required=False, type=xip_addr_type, default=None,help='Provide the start and end address seperated by colon. This will generate {multicore_elf.out_xip}. Example: --xip=0x60100000:0x60200000')
-    my_parser.add_argument('--xlat', required=False, default=None, help="Path to device JSON file inside the deviceData/AddrTranslate folder")
+    my_parser.add_argument('--xip', required=False, type=xip_addr_type, default=None,\
+                           help='Provide the start and end address seperated by colon. \
+                            This will generate {multicore_elf.out_xip}. \
+                                Example: --xip=0x60100000:0x60200000')
+    my_parser.add_argument('--xlat', required=False, default=None, \
+                           help="Path to device JSON file inside the \
+                            deviceData/AddrTranslate folder")
 
     return my_parser.parse_args()
 

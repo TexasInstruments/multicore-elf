@@ -2,8 +2,9 @@
 
 import sys
 import os
+from os import path
 
-sys.path.append(os.path.abspath(os.path.join(os.path.abspath(os.path.dirname(__file__)), "../pkgs")))
+sys.path.append(path.abspath(path.join(path.abspath(path.dirname(__file__)), "../pkgs")))
 
 from elftools.elf.elffile import ELFFile
 from .elf import ELF

@@ -1,4 +1,10 @@
 '''ELF Module'''
+
+import sys
+from os import path
+
+sys.path.append(path.abspath(path.join(path.abspath(path.dirname(__file__)), "../pkgs")))
+
 from elftools.elf.elffile import Segment
 from .elf_structs import elf_header, elf_prog_header
 from .elf_structs import ElfConstants as ELFC, PT_TYPE_DICT
@@ -62,7 +68,7 @@ class ELFProgramHeader():
         self.header = self.format.parse(bytearray(self.size))
 
         if isinstance(data, Segment):
-            self.data = data    
+            self.data = data
             self.header.type = PT_TYPE_DICT[data.header['p_type']]
             if is64:
                 self.header.flags_64 = data.header['p_flags']
@@ -158,7 +164,7 @@ class ELF():
         alignment = max(merger['header'].header.align, mergee['header'].header.align)
         start = mergee['header'].header.vaddr
         end = merger['header'].header.vaddr + merger['header'].header.filesz
-        padding = (start-end)
+        padding = start-end
 
         # add zero padding
         merger['data'].extend(bytearray(padding))
@@ -178,8 +184,8 @@ class ELF():
         addr_check = False
         context_check = False
 
-        end = (merger['header'].header.vaddr + merger['header'].header.filesz)
-        start = (mergee['header'].header.vaddr)
+        end = merger['header'].header.vaddr + merger['header'].header.filesz
+        start = mergee['header'].header.vaddr
         addr_check = bool(((start - end) <= tol_limit) and (start != merger['header'].header.vaddr))
 
         if ignore_context:

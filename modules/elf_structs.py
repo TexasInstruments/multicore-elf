@@ -1,8 +1,9 @@
 '''Basic module defining ELF structures and constants'''
 
 import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.abspath(os.path.dirname(__file__)), "../pkgs")))
+from os import path
+
+sys.path.append(path.abspath(path.join(path.abspath(path.dirname(__file__)), "../pkgs")))
 
 from enum import Enum
 from construct import Struct, Int16ul, Int16ub, \

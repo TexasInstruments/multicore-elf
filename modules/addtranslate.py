@@ -1,10 +1,12 @@
+'''Module to perform Address Translation'''
 import json
 
 def address_translate(xlat_file_path, coreid, addr):
+    '''Address Translation based on device'''
     output_addr = addr
-    with open(xlat_file_path, 'r') as file:
+    with open(xlat_file_path, 'r', encoding='utf-8') as file:
         data = json.load(file)
-        
+
     region_addr_info = list(data['cores'].values())[coreid]['info']
 
     for info in region_addr_info:
