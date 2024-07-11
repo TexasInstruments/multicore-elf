@@ -236,7 +236,7 @@ class ELF():
     def __generate_pht(self):
         # process offsets
         phnum = len(self.segmentlist)
-        random_ph = self.segmentlist[1] # segment 0 is always note segment
+        random_ph = self.segmentlist[0] # segment 0 is always note segment
 
         offset = self.elfheader.get_size() + (phnum * random_ph['header'].get_size())
 
