@@ -32,6 +32,8 @@ Takes multiple ELF files as input and combines their segments to create a minima
 
 8. --sso : Shared static objects. YET TO BE IMPLEMENTED.
 
+9. --max_segment_size : Maximum allowed size of a loadable segment. This feature can only be used with merge_segments disabled. Default values is 8192 bytes.
+
 
 ### MCUSDK integration
 

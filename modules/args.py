@@ -45,6 +45,9 @@ def get_args():
     my_parser.add_argument('--xlat', required=False, default=None, \
                            help="Path to device JSON file inside the \
                             deviceData/AddrTranslate folder")
+    my_parser.add_argument('--max_segment_size', required=True, type=int, default=None, \
+                           help="Maximum allowed size for a loadable segment. \
+                             This option is not honored when merge segments is set to True")
 
     return my_parser.parse_args()
 

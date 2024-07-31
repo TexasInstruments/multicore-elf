@@ -64,7 +64,7 @@ class MultiCoreELF():
 
         return (i_range and a_range)
 
-    def generate_multicoreelf(self, dump_segments=False, segmerge=False,
+    def generate_multicoreelf(self, max_segment_size: int, dump_segments=False, segmerge=False,
         tol_limit=0, ignore_context=False, xlat_file_path=None, custom_note: CustomNote = None):
         '''Function to finally generate the multicore elf file'''
         # Check if there are any 64 bit ELFs in the list
@@ -88,7 +88,7 @@ class MultiCoreELF():
             self.eplist[core_id] = elf_o.header['e_entry']
             for segment in elf_o.iter_segments(type='PT_LOAD'):
                 if (segment.header['p_filesz'] != 0) and self.__check_range(segment.header):
-                    elf_obj.add_segment_from_elf(segment, context=core_id)
+                    elf_obj.add_segment_from_elf(segment, max_segment_size, context=core_id)
             elf_fp.close()
         # segment sort and merge
         elf_obj.merge_segments(tol_limit=tol_limit,

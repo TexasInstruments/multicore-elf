@@ -121,10 +121,40 @@ class ELF():
         '''Function to add segment to the internal segment list'''
         self.segmentlist.append({"header": phent, "data": segdata, "context": context})
 
-    def add_segment_from_elf(self, segment, context = 0):
+    def add_segment_from_elf(self, segment, max_segment_size, context = 0):
         '''Function to add segment from ELFFile segment list'''
-        phent = ELFProgramHeader(segment, little_endian=self.little_endian, is64=self.is64)
-        self.add_segment(phent=phent, segdata=bytearray(segment.data()), context=context)
+        
+        size_left = segment.header['p_filesz']
+        segment_data=bytearray(segment.data())
+
+        current_seg_count = 0 
+
+        while (size_left >= max_segment_size):
+            phent = ELFProgramHeader(segment, little_endian=self.little_endian, is64=self.is64)
+            phent.header.vaddr += current_seg_count * max_segment_size
+            phent.header.paddr += current_seg_count * max_segment_size 
+            phent.header.filesz = max_segment_size
+            phent.header.memsz = max_segment_size
+            if (current_seg_count > 0):
+                phent.header.align = 1
+            self.add_segment(phent=phent,
+                             segdata=segment_data[current_seg_count * max_segment_size : (current_seg_count + 1) * max_segment_size],
+                             context=context)
+            size_left -= max_segment_size
+            current_seg_count += 1
+        
+        if (size_left > 0):
+            phent = ELFProgramHeader(segment, little_endian=self.little_endian, is64=self.is64)
+            phent.header.vaddr += current_seg_count * max_segment_size
+            phent.header.paddr += current_seg_count * max_segment_size 
+            phent.header.filesz = size_left
+            phent.header.memsz = size_left
+            if (current_seg_count > 0):
+                phent.header.align = 1
+            self.add_segment(phent=phent, 
+                             segdata=segment_data[current_seg_count * max_segment_size : current_seg_count * max_segment_size + size_left],
+                             context=context)
+
 
     def __add_note_segment(self, eplist, custom_note: CustomNote = None):
         note_data = bytearray(0)

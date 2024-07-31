@@ -12,7 +12,8 @@ def generate_image(arguments, m_elf: MultiCoreELF, custom_note: CustomNote = Non
         for ifname in arguments.sso:
             m_elf.add_sso(ifname[0])
 
-    m_elf.generate_multicoreelf(segmerge=arguments.merge_segments,
+    m_elf.generate_multicoreelf(max_segment_size=arguments.max_segment_size,
+                                segmerge=arguments.merge_segments,
                                 tol_limit=arguments.tolerance_limit,
                                 ignore_context=arguments.ignore_context,
                                 xlat_file_path=arguments.xlat,
