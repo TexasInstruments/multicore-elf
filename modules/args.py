@@ -34,15 +34,15 @@ def get_args():
                             To be specified as core_num:ELF_image. \
                                 Example: --core-img=0:core0_binary.out')
     my_parser.add_argument('-s', '--sso', required=False, action='append', nargs='*')
-    my_parser.add_argument('--merge-segments', required=False, default=False)
-    my_parser.add_argument('-t', '--tolerance-limit', type=int, required=False, default=0)
-    my_parser.add_argument('--ignore-context', required=False, default=False)
-    my_parser.add_argument('-o', '--output', required=True)
-    my_parser.add_argument('--xip', required=False, type=xip_addr_type, default=None,\
+    my_parser.add_argument('--merge-segments', required=True, type=str, default=False)
+    my_parser.add_argument('-t', '--tolerance-limit', type=int, required=True, default=0)
+    my_parser.add_argument('--ignore-context', required=True, type=str, default=False)
+    my_parser.add_argument('-o', '--output', required=True, type=str)
+    my_parser.add_argument('--xip', required=True, type=xip_addr_type, default=None,\
                            help='Provide the start and end address seperated by colon. \
                             This will generate {multicore_elf.out_xip}. \
                                 Example: --xip=0x60100000:0x60200000')
-    my_parser.add_argument('--xlat', required=False, default=None, \
+    my_parser.add_argument('--xlat', required=True, type=str, default=None, \
                            help="Path to device JSON file inside the \
                             deviceData/AddrTranslate folder")
     my_parser.add_argument('--max_segment_size', required=True, type=int, default=None, \

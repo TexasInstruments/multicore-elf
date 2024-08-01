@@ -12,10 +12,26 @@ def generate_image(arguments, m_elf: MultiCoreELF, custom_note: CustomNote = Non
         for ifname in arguments.sso:
             m_elf.add_sso(ifname[0])
 
-    m_elf.generate_multicoreelf(max_segment_size=arguments.max_segment_size,
-                                segmerge=arguments.merge_segments,
+    # Set segment merge flag based on input string "true/false"
+    segment_merge_flag = False
+
+    if (arguments.merge_segments.upper() == "TRUE"):
+        segment_merge_flag = True
+    else:
+        segment_merge_flag = False
+
+    # Set ignore context flag based on input string "true/false"
+    ignore_context_flag = False
+
+    if (arguments.ignore_context.upper() == "TRUE"):
+        ignore_context_flag = True
+    else:
+        ignore_context_flag = False
+
+    # Generate multicoreelf
+    m_elf.generate_multicoreelf(segmerge=segment_merge_flag,
                                 tol_limit=arguments.tolerance_limit,
-                                ignore_context=arguments.ignore_context,
+                                ignore_context=ignore_context_flag,
                                 xlat_file_path=arguments.xlat,
                                 custom_note=custom_note)
 
