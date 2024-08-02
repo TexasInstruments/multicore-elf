@@ -29,7 +29,8 @@ def generate_image(arguments, m_elf: MultiCoreELF, custom_note: CustomNote = Non
         ignore_context_flag = False
 
     # Generate multicoreelf
-    m_elf.generate_multicoreelf(segmerge=segment_merge_flag,
+    m_elf.generate_multicoreelf(max_segment_size=arguments.max_segment_size,
+                                segmerge=segment_merge_flag,
                                 tol_limit=arguments.tolerance_limit,
                                 ignore_context=ignore_context_flag,
                                 xlat_file_path=arguments.xlat,
