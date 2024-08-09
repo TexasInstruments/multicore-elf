@@ -3,7 +3,7 @@ from modules.args import get_args
 from modules.multicoreelf import MultiCoreELF
 from modules.note import CustomNote
 
-def generate_image(arguments, m_elf: MultiCoreELF, custom_note: CustomNote = None):
+def generate_image(arguments, m_elf: MultiCoreELF, add_rs_note = False, custom_note: CustomNote = None):
     '''Helper function to generate image'''
     for ifname in arguments.core_img:
         m_elf.add_elf(ifname[0])
@@ -34,7 +34,8 @@ def generate_image(arguments, m_elf: MultiCoreELF, custom_note: CustomNote = Non
                                 tol_limit=arguments.tolerance_limit,
                                 ignore_context=ignore_context_flag,
                                 xlat_file_path=arguments.xlat,
-                                custom_note=custom_note)
+                                custom_note=custom_note,
+                                add_rs_note=add_rs_note)
 
 def main():
     '''Main function'''
@@ -55,13 +56,13 @@ def main():
             ofname=f"{arguments.output}_xip",
             accept_range=accept_range
             )
-        generate_image(arguments, m_elf_xip)
+        generate_image(arguments, m_elf_xip, add_rs_note=False)
 
     m_elf = MultiCoreELF(
         ofname=arguments.output,
         ignore_range=ignore_range
         )
-    generate_image(arguments, m_elf)
+    generate_image(arguments, m_elf, add_rs_note=True)
 
 if __name__ == "__main__":
     main()

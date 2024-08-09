@@ -65,7 +65,7 @@ class MultiCoreELF():
         return (i_range and a_range)
 
     def generate_multicoreelf(self, max_segment_size: int, dump_segments=False, segmerge=False,
-        tol_limit=0, ignore_context=False, xlat_file_path=None, custom_note: CustomNote = None):
+        tol_limit=0, ignore_context=False, xlat_file_path=None, custom_note: CustomNote = None, add_rs_note=False):
         '''Function to finally generate the multicore elf file'''
         # Check if there are any 64 bit ELFs in the list
         is64, core64 = self.__check_for_elf64()
@@ -96,7 +96,7 @@ class MultiCoreELF():
                             ignore_context=ignore_context)
         # add note segment
         # make final elf
-        elf_obj.make_elf(self.ofname, xlat_file_path, self.eplist, custom_note=custom_note)
+        elf_obj.make_elf(self.ofname, xlat_file_path, self.eplist, custom_note=custom_note, add_rs_note=add_rs_note)
 
         if dump_segments:
             elf_obj.dbg_dumpsegments()

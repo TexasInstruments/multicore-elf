@@ -299,7 +299,7 @@ class ELF():
     def  __add_rs_note_segment(self, filesize):
         ''' Add RS note segment to the end of the created elf file '''
         
-        enc_rs = subprocess.check_output('openssl rand 32', shell=True)
+        random_string = subprocess.check_output('openssl rand 32', shell=True)
         
         # Ensure that the program segments are a multiple of 16 bytes
         # for AES CBC encryption by padding with zeros,
@@ -310,16 +310,14 @@ class ELF():
         phent.header.type = PT_TYPE_DICT['PT_NOTE']
         phent.header.vaddr = 0
         phent.header.paddr = 0
-        phent.header.filesz = len (zeros_pad + enc_rs)
-        phent.header.memsz = len (zeros_pad + enc_rs)
-        
-        print("Length of segment is ", phent.header.filesz)
+        phent.header.filesz = len (zeros_pad + random_string)
+        phent.header.memsz = len (zeros_pad + random_string)
 
-        seg_dict = {"header": phent, "data": zeros_pad + enc_rs, "context": None}
+        seg_dict = {"header": phent, "data": zeros_pad + random_string, "context": None}
 
         self.segmentlist.append(seg_dict)
        
-    def make_elf(self, fname, xlat_file_path, eplist, custom_note: CustomNote = None, is_xip = False):
+    def make_elf(self, fname, xlat_file_path, eplist, custom_note: CustomNote = None, add_rs_note = False):
         '''Create the elf file and write it to the filename provided'''
         # check if elf header is added
         if not self.eh_added:
@@ -355,11 +353,18 @@ class ELF():
         for seg in self.segmentlist:
             self.bstream.extend(seg['data'])
 
-        # add rs segment to the end of the segment list
-        if is_xip is False:
+        # if addition of random string note segment is required
+        if add_rs_note:
+            # add rs segment to the end of the segment list    
             self.__add_rs_note_segment(len(self.bstream))
+            
+            # generate the modified pht
             self.__generate_pht()
-            final_stream.extend(self.__update_elfh().pack())
+            
+            # get the updated ELF header
+            updated_elfh = self.__update_elfh()
+            if (updated_elfh):
+                final_stream.extend(updated_elfh.pack())
 
             # now add PHT
             for seg in self.segmentlist:
@@ -372,6 +377,7 @@ class ELF():
             # the end, now write this to a file
             with open(fname, 'wb+') as file_p:
                 file_p.write(final_stream)
+                
         else:
             # the end, now write this to a file
             with open(fname, 'wb+') as file_p:
