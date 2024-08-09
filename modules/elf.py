@@ -2,6 +2,7 @@
 
 import sys
 from os import path
+import subprocess
 
 sys.path.append(path.abspath(path.join(path.abspath(path.dirname(__file__)), "../pkgs")))
 
@@ -288,12 +289,37 @@ class ELF():
         self.elfheader.header.e_shstrndx = 0
         self.bstream.extend(self.elfheader.pack())
 
+        return self.elfheader
+
     def dbg_dumpsegments(self):
         '''Debug function to dump the segments of the ELF Object'''
         for seg in self.segmentlist:
             print(f"{seg['header'].header}, SIZE = {hex(len(seg['data']))} : {seg['context']}")
 
-    def make_elf(self, fname, xlat_file_path, eplist, custom_note: CustomNote = None):
+    def  __add_rs_note_segment(self, filesize):
+        ''' Add RS note segment to the end of the created elf file '''
+        
+        enc_rs = subprocess.check_output('openssl rand 32', shell=True)
+        
+        # Ensure that the program segments are a multiple of 16 bytes
+        # for AES CBC encryption by padding with zeros,
+        # 52 is the ELF Header size (which always holds true).
+        zeros_pad = bytearray(16 - ((filesize - 52) % 16))
+
+        phent = ELFProgramHeader(None, little_endian=self.little_endian, is64=self.is64)
+        phent.header.type = PT_TYPE_DICT['PT_NOTE']
+        phent.header.vaddr = 0
+        phent.header.paddr = 0
+        phent.header.filesz = len (zeros_pad + enc_rs)
+        phent.header.memsz = len (zeros_pad + enc_rs)
+        
+        print("Length of segment is ", phent.header.filesz)
+
+        seg_dict = {"header": phent, "data": zeros_pad + enc_rs, "context": None}
+
+        self.segmentlist.append(seg_dict)
+       
+    def make_elf(self, fname, xlat_file_path, eplist, custom_note: CustomNote = None, is_xip = False):
         '''Create the elf file and write it to the filename provided'''
         # check if elf header is added
         if not self.eh_added:
@@ -318,6 +344,9 @@ class ELF():
         # update and add elf header
         self.__update_elfh()
 
+        # this stream will represent the final binary with RS note segment
+        final_stream = bytearray()
+
         # now add PHT
         for seg in self.segmentlist:
             self.bstream.extend(seg['header'].pack())
@@ -326,9 +355,27 @@ class ELF():
         for seg in self.segmentlist:
             self.bstream.extend(seg['data'])
 
-        # the end, now write this to a file
-        with open(fname, 'wb+') as file_p:
-            file_p.write(self.bstream)
+        # add rs segment to the end of the segment list
+        if is_xip is False:
+            self.__add_rs_note_segment(len(self.bstream))
+            self.__generate_pht()
+            final_stream.extend(self.__update_elfh().pack())
+
+            # now add PHT
+            for seg in self.segmentlist:
+                final_stream.extend(seg['header'].pack())
+
+            # now add the data
+            for seg in self.segmentlist:
+                final_stream.extend(seg['data'])
+
+            # the end, now write this to a file
+            with open(fname, 'wb+') as file_p:
+                file_p.write(final_stream)
+        else:
+            # the end, now write this to a file
+            with open(fname, 'wb+') as file_p:
+                file_p.write(self.bstream)
 
         return 0
 
