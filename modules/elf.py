@@ -185,6 +185,8 @@ class ELF():
 
         self.segmentlist.insert(0, seg_dict)
 
+        return len(seg_dict["data"])
+
     def __merge_two_segments(self, merger, mergee):
         if merger is None:
             return None
@@ -296,7 +298,7 @@ class ELF():
         for seg in self.segmentlist:
             print(f"{seg['header'].header}, SIZE = {hex(len(seg['data']))} : {seg['context']}")
 
-    def  __add_rs_note_segment(self, filesize):
+    def  __add_rs_note_segment(self, filesize, custom_note_seg_len):
         ''' Add RS note segment to the end of the created elf file '''
         
         random_string = subprocess.check_output('openssl rand 32', shell=True)
@@ -304,7 +306,8 @@ class ELF():
         # Ensure that the program segments are a multiple of 16 bytes
         # for AES CBC encryption by padding with zeros,
         # 52 is the ELF Header size (which always holds true).
-        zeros_pad = bytearray(16 - ((filesize - 52) % 16))
+        # The size of each PHT entry is 32 bytes in case of ELF32 and 64 in case of ELF64.
+        zeros_pad = bytearray(16 - ((filesize - 52 - custom_note_seg_len) % 16))
 
         phent = ELFProgramHeader(None, little_endian=self.little_endian, is64=self.is64)
         phent.header.type = PT_TYPE_DICT['PT_NOTE']
@@ -334,7 +337,7 @@ class ELF():
                 coreid=int(seg['context']), addr=seg['header'].header.paddr)
 
         # add note segments
-        self.__add_note_segment(eplist, custom_note)
+        cust_note_segment_length = self.__add_note_segment(eplist, custom_note)
 
         # generate PHT
         self.__generate_pht()
@@ -356,7 +359,7 @@ class ELF():
         # if addition of random string note segment is required
         if add_rs_note:
             # add rs segment to the end of the segment list    
-            self.__add_rs_note_segment(len(self.bstream))
+            self.__add_rs_note_segment(len(self.bstream), cust_note_segment_length)
             
             # generate the modified pht
             self.__generate_pht()
