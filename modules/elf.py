@@ -1,11 +1,6 @@
 '''ELF Module'''
 
-import sys
-from os import path
 import subprocess
-
-sys.path.append(path.abspath(path.join(path.abspath(path.dirname(__file__)), "../pkgs")))
-
 from elftools.elf.elffile import Segment
 from .elf_structs import elf_header, elf_prog_header
 from .elf_structs import ElfConstants as ELFC, PT_TYPE_DICT
@@ -124,11 +119,11 @@ class ELF():
 
     def add_segment_from_elf(self, segment, max_segment_size, context = 0):
         '''Function to add segment from ELFFile segment list'''
-        
+
         size_left = segment.header['p_filesz']
         segment_data=bytearray(segment.data())
 
-        current_seg_count = 0 
+        current_seg_count = 0
 
         while (size_left >= max_segment_size):
             phent = ELFProgramHeader(segment, little_endian=self.little_endian, is64=self.is64)

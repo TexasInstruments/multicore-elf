@@ -1,10 +1,5 @@
 '''Basic module defining ELF structures and constants'''
 
-import sys
-from os import path
-
-sys.path.append(path.abspath(path.join(path.abspath(path.dirname(__file__)), "../pkgs")))
-
 from enum import Enum
 from construct import Struct, Int16ul, Int16ub, \
 Int32ul, Int32ub, Int64ul, Int64ub, Bytes, IfThenElse, If

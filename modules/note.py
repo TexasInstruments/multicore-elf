@@ -1,10 +1,5 @@
 '''Module which defines the note segment for the multicore elf'''
 
-import sys
-from os import path
-
-sys.path.append(path.abspath(path.join(path.abspath(path.dirname(__file__)), "../pkgs")))
-
 from enum import Enum
 from construct import Struct, Int32ul, Int32ub, Int64ul, Int64ub, \
     Array, IfThenElse, Padding, Byte, Bytes, If

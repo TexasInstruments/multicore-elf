@@ -2,6 +2,14 @@
 
 Takes multiple ELF files as input and combines their segments to create a minimal single ELF file with ELF header, program header table, custom note segment and the data segments.
 
+### Prerequisites
+
+Install the required libraries to your system specified in `requirements.txt` by:
+
+```
+pip install -r requirements.txt
+```
+
 ### Script arguments
 
 1. --core-img : Path to individual binaries of each core. It is a mandatory argument. Input is given in this format - 
@@ -25,12 +33,12 @@ Takes multiple ELF files as input and combines their segments to create a minima
 	--xip=0x60100000:0x60200000
 	```
 
-7. --xlat : SOC specific Address Translation. SOC JSON located in devideData/AddrTranslate folder. Default value is "" (empty string).
+7. --xlat : SOC specific Address Translation. SOC JSON located in devideData/AddrTranslate folder. Default value is "" (empty string). (UNDER DEVELOPMENT)
 	```
 	--xlat=deviceData/AddrTranslate/am263xjson
 	```
 
-8. --sso : Shared static objects. YET TO BE IMPLEMENTED.
+8. --sso : Shared static objects. (UNDER DEVELOPMENT)
 
 9. --max_segment_size : Maximum allowed size of a loadable segment. This feature can only be used with merge_segments disabled. Default values is 8192 bytes.
 
