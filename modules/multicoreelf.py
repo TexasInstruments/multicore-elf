@@ -60,11 +60,17 @@ class MultiCoreELF():
         # Try to split the fname into core ID and filename
         delim = ':'
         core_id, filename = fname.split(delim)
-        self.elf_file_list[core_id] = os.path.realpath(filename)
+        if(os.path.exists(filename)):
+            self.elf_file_list[core_id] = os.path.realpath(filename)
+        else:
+            self.log_error(f"file \"{filename}\" doesnot exist, skipping this")
 
     def add_sso(self, fname: str):
         '''Function to add an input SSO file to list'''
-        self.elf_file_list[SSO_CORE_ID] = os.path.realpath(fname)
+        if(os.path.exists(fname)):
+            self.elf_file_list[SSO_CORE_ID] = os.path.realpath(fname)
+        else:
+            self.log_error(f"file \"{fname}\" doesnot exist, skipping this")
 
     def __check_for_elf64(self):
         class_index = ELFC.ELFCLASS_IDX.value
