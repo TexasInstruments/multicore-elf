@@ -41,7 +41,7 @@ class NoteTypes(Enum):
     VENDOR_ID = 0xAAAA5555
     SEGMENT_MAP = 0xBBBB7777
     ENTRY_POINTS = 0xCCCC9999
-    CUSTOM = 0xDEADC0DE
+    CUSTOM = 0xDDDDBBBB
 
 class CustomNote():
     '''Helper class to build custom notes'''
@@ -142,7 +142,7 @@ def get_note_custom(islittle, cust: CustomNote):
     '''Function to return custom note with descriptor as serialized data (byte array)'''
     desclen = len(cust.data)
     name = cust.name
-    note_format = get_note_format(islittle, f'{name} ', desclen)
+    note_format = get_note_format(islittle, f'{name}', desclen)
     dummy_data = bytearray(note_format.sizeof())
     note = note_format.parse(dummy_data)
     note.namesz = len(name)
@@ -150,7 +150,7 @@ def get_note_custom(islittle, cust: CustomNote):
     note.type   = NoteTypes.CUSTOM.value
     note.name   = bytes(name.encode('ascii'))
     note.desc   = cust.data
-    note_data   = note_format.build(note)
+    note_data   = note_format.build(dict(note))
     return bytearray(note_data)
 
 if __name__ == "__main__":

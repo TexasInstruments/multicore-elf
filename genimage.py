@@ -31,8 +31,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 '''
 
 '''Main script to generate the multicore ELF image'''
+import os 
+import json 
+from typing import List
+from modules.otfaecc_structs import * 
 from modules.args import get_args
-from modules.multicoreelf import MultiCoreELF
+from modules.multicoreelf import MultiCoreELF, OTFAECCMProcessor
 from modules.note import CustomNote
 
 def generate_image(arguments, m_elf: MultiCoreELF, add_rs_note = False, custom_note: CustomNote = None):
@@ -69,9 +73,55 @@ def generate_image(arguments, m_elf: MultiCoreELF, add_rs_note = False, custom_n
                                 custom_note=custom_note,
                                 add_rs_note=add_rs_note)
 
+def getValidateOtfaConfig(filePath:str) -> OTFAConfig:
+    retConf:OTFAConfig = OTFAConfig()
+    with open(filePath, "r") as fp:
+        conf = json.load(fp)
+        retConf.isEnabled = False 
+        otfaReg:list[otfaRegionConfig] = list()
+        if('regions' in conf):
+            if(type(conf['regions']) == type(list())):
+                if(len(conf['regions']) > 0):
+                    for i in range(len(conf['regions'])):
+                        if(('size' in conf['regions'][i]) and conf['regions'][i]['size'] > 0):
+                            regconf = otfaRegionConfig()
+                            regconf.size = conf['regions'][i]['size']
+                            if('start' in conf['regions'][i]):
+                                regconf.start = conf['regions'][i]['start']
+                            if('authKey' in conf['regions'][i]):
+                                regconf.authKey = conf['regions'][i]['authKey']
+                            if('encKey' in conf['regions'][i]):
+                                regconf.encKey = conf['regions'][i]['encKey']
+                            if('iv' in conf['regions'][i]):
+                                regconf.iv = conf['regions'][i]['iv']
+                            if('cryptoMode' in conf['regions'][i]):
+                                regconf.cryptoMode = conf['regions'][i]['cryptoMode']
+                            if('eccEnable' in conf['regions'][i]):
+                                regconf.eccEnable = conf['regions'][i]['eccEnable']
+                            otfaReg.append(regconf)
+                    if(len(otfaReg) > 0):
+                        retConf.isEnabled = True 
+                        retConf.regionConfigList = otfaReg
+        if('mac_align' not in conf):
+            retConf.mac_align = True 
+        if('mac_size' not in conf):
+            retConf.mac_size = 4 
+        if('aes_key_size' not in conf):
+            retConf.aes_key_size = OTFA_AES_KEY_SIZE_128BIT 
+    return retConf 
+
 def main():
     '''Main function'''
     arguments = get_args()
+
+    otfaConfigFile:str|None = arguments.otfaConfigFile
+    otfaConfg:OTFAConfig|None = OTFAConfig()
+
+    if otfaConfigFile is not None and os.path.exists(os.path.abspath(otfaConfigFile)) is False:
+        otfaConfigFile = None 
+        otfaConfg.isEnabled = False
+    else:
+        otfaConfg = getValidateOtfaConfig(otfaConfigFile)
 
     if arguments.xlat is not None and arguments.xlat.strip() == "":
         arguments.xlat = None
@@ -80,6 +130,7 @@ def main():
 
     ignore_range = None
     accept_range = None
+    otfaConfigNote:CustomNote = CustomNote("otfaConfig", otfaConfg.packBytes())
 
     if is_xip:
         ignore_range = accept_range = arguments.xip
@@ -88,13 +139,15 @@ def main():
             ofname=f"{arguments.output}_xip",
             accept_range=accept_range
             )
-        generate_image(arguments, m_elf_xip, add_rs_note=False)
+        m_elf_xip.otfaConfig = otfaConfg
+        generate_image(arguments, m_elf_xip, add_rs_note=False, custom_note=otfaConfigNote)
 
     m_elf = MultiCoreELF(
         ofname=arguments.output,
         ignore_range=ignore_range
         )
-    generate_image(arguments, m_elf, add_rs_note=True)
+    m_elf_xip.otfaConfig.isEnabled = False
+    generate_image(arguments, m_elf, add_rs_note=True, custom_note=otfaConfigNote)
 
 if __name__ == "__main__":
     main()

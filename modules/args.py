@@ -81,6 +81,8 @@ def get_args():
                            help="Maximum allowed size for a loadable segment. \
                              This option is not honored when merge segments is set to True")
 
+    my_parser.add_argument('--otfaConfigFile', required=False, type=str, default=None, \
+                           help="Path to json file containing the otfa config")
     return my_parser.parse_args()
 
 if __name__ == "__main__":
