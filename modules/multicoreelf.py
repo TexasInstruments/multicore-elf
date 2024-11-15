@@ -42,15 +42,16 @@ from .elf_structs import ElfConstants as ELFC
 from .consts import SSO_CORE_ID
 from .note import CustomNote
 from .otfaecc_structs import *
-from .gmac import enc_process_data
-from .eccm import append_ecc
+from .gmac_w_ccm import *
+from .eccm import *
+import struct 
 
 class OTFAECCMProcessor:
     class regionProperty:
         def __init__(self) -> None:
             self.start:int = 0
             self.size:int = 0
-            self.cryptoMode:int =0
+            self.cryptoMode:int = OTFA_MODE_NO_ENCRYPT
             self.mac_size:int = 0
             self.authKey:bytearray = bytearray()
             self.encKey:bytearray = bytearray()
@@ -75,11 +76,11 @@ class OTFAECCMProcessor:
                 reg2.start = st
                 reg2.size = en - st 
                 reg2.cryptoMode = otfaRegion.cryptoMode
-                reg2.mac_size = conf.mac_size
+                reg1.mac_size = reg2.mac_size = conf.mac_size
                 reg2.authKey = otfaRegion.authKey
                 reg2.encKey = otfaRegion.encKey
                 reg2.iv = otfaRegion.iv
-                reg2.ecc_enable = otfaRegion.eccEnable
+                reg1.ecc_enable = reg2.ecc_enable = otfaRegion.eccEnable
                 if(reg1.size > 0):
                     subRegs.append(reg1)
                 subRegs.append(reg2)
@@ -91,6 +92,7 @@ class OTFAECCMProcessor:
             reg.start = addressPointer
             reg.size = (startAddress + size) - addressPointer
             reg.cryptoMode = OTFA_MODE_NO_ENCRYPT
+            reg.mac_size = conf.mac_size
             reg.ecc_enable = False
             subRegs.append(reg)
 
@@ -101,6 +103,7 @@ class OTFAECCMProcessor:
             reg.start = address
             reg.size = size
             reg.cryptoMode = OTFA_MODE_NO_ENCRYPT
+            reg.mac_size = conf.mac_size
             reg.ecc_enable = False
             subRegs.append(reg)
 
@@ -108,29 +111,105 @@ class OTFAECCMProcessor:
             print(f"start: {hex(r.start)}, size: {hex(r.size)}, eccEn: {r.ecc_enable}, cryptoMode: {r.cryptoMode}")
         
         return subRegs
-    
+
+    def process_for_safety_and_security(self,input_buffer: bytes, address:int, otfaEn:bool, eccEn:bool, mode: str, mac_size: int, auth_key: bytes, enc_key: bytes, iv: bytes) -> bytes:
+        
+        def __convert_bytes_to_bits(bytes_data):
+            bits = []
+            for byte in bytes_data:
+                for j in range(8):
+                    bits.append((byte >> (j)) & 1)
+            return bits
+
+        CHUNK_SIZE = 32
+        iv = iv[::-1]
+        output_buffer  = bytearray()
+        chunks_len = int(len(input_buffer) / CHUNK_SIZE) + (1 if (len(input_buffer) % CHUNK_SIZE) != 0 else 0)
+        for i in range(chunks_len):
+            chunk = input_buffer[(i*32):((i+1)*32)]
+            chunk = chunk.ljust(CHUNK_SIZE, b'\x00')
+            chunk_high = chunk[0:16]
+            chunk_low = chunk[16:32]
+            processed_chunk = bytearray(chunk)
+            mac_bytes = bytearray(b'\x00'*int(mac_size))
+            ecc_bytes = bytearray()
+
+            if(otfaEn == True):
+                if(mode == OTFA_MODE_GCM or mode == OTFA_MODE_CCM):
+                    tag_high,processed_chunk_high = process_chunk(chunk_high, mode, auth_key, enc_key, iv, address + 32*i)
+                    tag_low,processed_chunk_low = process_chunk(chunk_low, mode, auth_key, enc_key, iv, address + 32*i + 16)
+                    mac_bytes = tag_low[0:int(mac_size)]
+                    output_buffer.extend(mac_bytes)
+                    processed_chunk = bytearray(processed_chunk_high)
+                    processed_chunk.extend(processed_chunk_low)
+                else:
+                    output_buffer.extend(mac_bytes)
+                    
+            output_buffer.extend(processed_chunk)
+
+            if(eccEn == True):
+                _addr = __convert_bytes_to_bits(bytearray(0).ljust(4, b'\x00'))[0:27]
+                _mac = mac_bytes.ljust(16, b'\x00')
+                processed_chunk_forecc = bytearray()
+                processed_chunk_forecc.extend(__convert_bytes_to_bits(processed_chunk))
+                processed_chunk_forecc.extend(__convert_bytes_to_bits(_mac))
+                processed_chunk_forecc.extend(_addr)
+                processed_chunk_forecc.extend(b'\x00')
+                
+                a0 = processed_chunk_forecc[(103*0):(103*1)]
+                a1 = processed_chunk_forecc[(103*1):(103*2)]
+                a2 = processed_chunk_forecc[(103*2):(103*3)]
+                a3 = processed_chunk_forecc[(103*3):(103*4)]
+                
+                w0 = ecc_gen(a0)
+                w1 = ecc_gen(a1)
+                w2 = ecc_gen(a2)
+                w3 = ecc_gen(a3)
+
+                ecc_bytes.extend(struct.pack('>B', w0)) # ECC P1
+                ecc_bytes.extend(struct.pack('>B', w1)) # ECC P2
+                ecc_bytes.extend(struct.pack('>B', w2)) # ECC P3
+                ecc_bytes.extend(struct.pack('>B', w3)) # ECC P4
+                output_buffer.extend(ecc_bytes)
+
+
+        return output_buffer
+
     def process(self, buff:bytearray, address:int, size:int, config:OTFAConfig):
         processedData:bytearray = bytearray()
         rgns = self.splitInRanges(address, size, config)
         # if ecc is enabled even in a single region, then enable it in all the regions
         doEnableEcc = False
+        doEnableMac = False 
         for otfaRgn in config.regionConfigList:
             if(otfaRgn.eccEnable == True):
                 doEnableEcc = True
-                break
+            if(otfaRgn.cryptoMode != OTFA_MODE_NO_ENCRYPT):
+                doEnableMac = True 
+        
         # if any crypo is enabled is any region then enable for all regions
         for r in rgns:
             stOffset = (r.start - address)
             enOffset = (r.start + r.size - address)
             dataBuff = bytearray(buff[stOffset:enOffset])
-            if(r.cryptoMode != OTFA_MODE_NO_ENCRYPT):
-                dataBuff = enc_process_data(dataBuff, r.cryptoMode, r.mac_size, r.start, bytearray(r.authKey), bytearray(r.encKey), bytearray(r.iv))
-            if(doEnableEcc == True):
-                dataBuff = append_ecc(dataBuff)
+            macSize:int = r.mac_size * 4
+            flash_offset = r.start & 0xFFFFFFF
+            dataBuff = self.process_for_safety_and_security(dataBuff, flash_offset, doEnableMac, doEnableEcc, r.cryptoMode, macSize, 
+                                                 bytearray(r.authKey), bytearray(r.encKey), bytearray(r.iv))
+            
+            # if(doEnableMac == True):
+            #     if(r.cryptoMode != OTFA_MODE_NO_ENCRYPT):
+            #         flash_offset = r.start & 0xFFFFFFF
+            #         dataBuff = enc_process_data(dataBuff, r.cryptoMode, macSize, flash_offset, bytearray(r.authKey), bytearray(r.encKey), bytearray(r.iv))
+            #     else:
+            #         dataBuff = enc_process_data_na(dataBuff, macSize)
+            # if(doEnableEcc == True):
+            #     dataBuff = append_ecc(dataBuff)
             processedData.extend(dataBuff)
         return processedData
 
 class MultiCoreELF():
+
     '''Multicore ELF Object'''
     def __init__(self, ofname='multicoreelf.out', little_endian=True,
                 ignore_range=None, accept_range=None) -> None:

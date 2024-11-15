@@ -41,6 +41,7 @@ OTFA_MODE_ENCRYPT= 'encrypt'
 OTFA_MODE_GCM = 'gcm'
 OTFA_MODE_ENCRYPT_AUTH = 'both'
 OTFA_MODE_NO_ENCRYPT = 'na'
+OTFA_MODE_CCM = 'ccm'
 
 OTFA_MAC_SIZE_4B = 1
 OTFA_MAC_SIZE_8B = 2
@@ -71,8 +72,10 @@ class otfaRegionConfig:
             c = 2
         elif(self.cryptoMode == OTFA_MODE_NO_ENCRYPT):
             c = 3
-        else:
+        elif(self.cryptoMode == OTFA_MODE_CCM):
             c = 4
+        else:
+            c = 5
         return pack(_frm, int(self.size), int(self.start), c, 0 if self.eccEnable == False else 1, bytes(self.authKey), bytes(self.encKey), bytes(self.iv))
 
 class OTFAConfig:
@@ -88,6 +91,6 @@ class OTFAConfig:
         for rgn in self.regionConfigList:
             rgnBytes = rgnBytes + rgn.packBytes()
         _frm = ">bbbbbxxx" + str(len(rgnBytes)) + "s"
-        return pack(_frm, self.isEnabled, self.mac_align, self.mac_size, 1 if self.aes_key_size == OTFA_AES_KEY_SIZE_128BIT else 0, len(self.regionConfigList),rgnBytes)
+        return pack(_frm, self.isEnabled, self.mac_align, self.mac_size, self.aes_key_size, len(self.regionConfigList),rgnBytes)
 
 

@@ -106,8 +106,18 @@ def getValidateOtfaConfig(filePath:str) -> OTFAConfig:
             retConf.mac_align = True 
         if('mac_size' not in conf):
             retConf.mac_size = 4 
+        else:
+            if(conf['mac_size'] == 8):
+                retConf.mac_size = OTFA_MAC_SIZE_8B
+            elif(conf['mac_size'] == 12):
+                retConf.mac_size = OTFA_MAC_SIZE_12B
+            elif(conf['mac_size'] == 16):
+                retConf.mac_size = OTFA_MAC_SIZE_16B
+            else :
+                retConf.mac_size = OTFA_MAC_SIZE_4B
         if('aes_key_size' not in conf):
             retConf.aes_key_size = OTFA_AES_KEY_SIZE_128BIT 
+    
     return retConf 
 
 def main():

@@ -32,8 +32,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 '''Post processing for GMAC and CCM'''
 
+import io
 import argparse
-import sys
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
@@ -64,16 +64,12 @@ def aes_data_mac(enc_key, iv, address):
 
     # XOR the IV with the current address
     iv_copy = xor_address_with_iv(iv_copy, address)
-    #print(hex(address))
 
-    #rev_chunk=reverse_array(chunk)
     enc_key = reverse_array(enc_key)
     cipher = Cipher(algorithms.AES(enc_key), modes.CTR(iv_copy), backend=backend)
     encryptor = cipher.encryptor()
     ciphertext = encryptor.update(chunk) + encryptor.finalize()
-    #print(ciphertext)
     ciphertext=reverse_array(ciphertext)    
-    #print(ciphertext)
     return ciphertext
 
 def bit_rev(data_in,bit_len):
@@ -225,22 +221,15 @@ def gmac(ct_lo, ct_hi, data_aes, key_a):
   for i in range(len(key_a)):
     
     key_a_flip[i] = bit_rev(key_a[1-i],64)
-    #print(hex(key_a_flip[i]))
-
-  #print("ct_lo")
-  # for i in range(len(key_a_flip)): 
-  #   print(hex(key_a_flip[i])) 
+  
   #stage -1
-  ghash_lo = ghash(ct_lo_flip, key_a_flip);
-  # print("ghas_lo")
-  # for i in range(4): 
-  #   print(hex(ghash_lo[i])) 
+  ghash_lo = ghash(ct_lo_flip, key_a_flip)
   #XOR
   for i in range(4): 
-    xored_input_hi[i] =  ct_hi_flip[i] ^ ghash_lo[i];
+    xored_input_hi[i] =  ct_hi_flip[i] ^ ghash_lo[i]
 
   #STAGE-2
-  ghash_hi = ghash(xored_input_hi, key_a_flip);
+  ghash_hi = ghash(xored_input_hi, key_a_flip)
   
 
   for i in range(4): 
@@ -277,9 +266,7 @@ def process_chunk(chunk, mode, auth_key, enc_key, iv, address):
     mac_start_addr = 0
     mac_region_offset_addr = (address - (region_start_addr<<12))
     mac_calc_addr = (mac_region_offset_addr>>3) + mac_start_addr
-    #print(hex(address))
-    #print(hex(mac_region_offset_addr>>3))
-
+    
     # XOR the IV with the current address
     iv_copy = xor_address_with_iv(iv_copy, address)
 
@@ -298,7 +285,6 @@ def process_chunk(chunk, mode, auth_key, enc_key, iv, address):
         ciphertext = encryptor.update(chunk) + encryptor.finalize()
         ciphertext=reverse_array(ciphertext)
         return ciphertext
-    
 
     elif mode == 'gcm':
         rev_chunk=reverse_array(chunk)
@@ -358,10 +344,7 @@ def process_chunk(chunk, mode, auth_key, enc_key, iv, address):
         ciphertext = encryptor.update(chunk) + encryptor.finalize()
         ciphertext=reverse_array(ciphertext)
         tag=encryptor.tag
-
-
         return ciphertext,tag
-
     else:
         raise ValueError("Invalid mode specified")
 
@@ -389,6 +372,76 @@ def process_file(input_file, output_file, mode, mac_size,start_addr, auth_key, e
             processed_chunk = process_chunk(chunk, mode, auth_key, enc_key, iv, address)
             f_out.write(processed_chunk)
         address += 16 # Increment address by chunk size
+
+
+def enc_process_data(input_buffer: bytes, mode: str, mac_size: int, start_addr: int, auth_key: bytes, enc_key: bytes, iv: bytes) -> bytes:
+    """
+    Process a buffer using the given mode, authentication key, encryption key, and initialization vector.
+
+    Args:
+    - input_buffer (bytes or bytearray): Input buffer to be processed.
+    - mode (str): Mode of operation (e.g., 'gcm').
+    - mac_size (int): Size of the authentication tag.
+    - start_addr (int): Starting address.
+    - auth_key (bytes): Authentication key.
+    - enc_key (bytes): Encryption key.
+    - iv (bytes): Initialization vector.
+
+    Returns:
+    bytes: Processed output buffer.
+    """    
+    iv = reverse_array(iv)
+    address = start_addr  # Starting address
+    output_buffer = io.BytesIO()  # Create an in-memory buffer to store output
+    input_buffer = io.BytesIO(input_buffer)  # Convert input buffer to BytesIO
+    while True:
+        chunk = input_buffer.read(16)  # Read 16 bytes at a time
+        if not chunk:
+            break  # End of buffer reached
+
+        if len(chunk) < 16:
+            # Pad the chunk with zeros to make it 16 bytes long
+            chunk = chunk.ljust(16, b'\x00')
+
+        if (mode == 'gcm') or (mode =='ccm'):
+            # GCM mode: process chunk and write authentication tag and cipher text
+            tag, processed_chunk = process_chunk(
+                chunk, mode, auth_key, enc_key, iv, address
+            )
+            # Write authentication tag and cipher text to output buffer
+            if (address % 32) == 0:
+                # Write cipher text only when address is a multiple of 32
+                cipher_text = processed_chunk
+            else:
+                output_buffer.write(tag[0:int(mac_size)])
+                output_buffer.write(cipher_text)
+                output_buffer.write(processed_chunk)  # Write processed chunk twice
+        else:
+            # Non-GCM mode: process chunk and write to output buffer
+            processed_chunk = process_chunk(chunk, mode, auth_key, enc_key, iv, address)
+            output_buffer.write(processed_chunk)
+
+        address += 16  # Increment address by chunk size
+
+    # Get the output buffer as bytes
+    output = output_buffer.getvalue()
+    return output
+
+
+def enc_process_data_na(input_buffer: bytes, mac_size: int) -> bytes:
+    CHUNK_SIZE = 32
+    output_buffer = io.BytesIO()  # Create an in-memory buffer to store output
+    input_buffer = io.BytesIO(input_buffer)  # Convert input buffer to BytesIO
+    while True:
+        chunk = input_buffer.read(CHUNK_SIZE)  
+        if not chunk:
+            break  # End of buffer reached
+        output_buffer.write(b'\xff'*mac_size)
+        output_buffer.write(chunk)
+
+    # Get the output buffer as bytes
+    output = output_buffer.getvalue()
+    return output
 
 
 

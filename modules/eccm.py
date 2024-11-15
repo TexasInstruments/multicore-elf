@@ -67,6 +67,53 @@ def convert_bytes_to_bits(bytes_data):
             bits.append((byte >> (7 - j)) & 1)
     return bits
 
+
+def generate_ecc_for_chunk(bytes_chunk):
+    if len(bytes_chunk) < 32:
+        bytes_chunk += bytes([0] * (32 - len(bytes_chunk)))
+
+    # ECC P1 calculation
+    comb1 = bytes_chunk[7::-1] # Combine bytes 0 to 7
+    comb2 = bytes_chunk[11:7:-1] # Combine bytes 8 to 11
+    comb_b1_bits = convert_bytes_to_bits(comb1)
+    comb_b2_bits = convert_bytes_to_bits(comb2)
+    comb_b3_bits = convert_bytes_to_bits([bytes_chunk[12]])[1:] # Use byte 12 and remove the MSB
+
+    final_arr = comb_b3_bits + comb_b2_bits + comb_b1_bits
+    final_arr.reverse()
+
+    ecc_p1 = ecc_gen(final_arr)
+
+    # ECC P2 calculation
+    comb_b4_bits = convert_bytes_to_bits([bytes_chunk[12]])[:1] # Use MSB of byte 12
+    comb5 = bytes_chunk[20:12:-1] # Combine bytes 13 to 20
+    comb_b5_bits = convert_bytes_to_bits(comb5)
+    comb6 = bytes_chunk[24:20:-1] # Combine bytes 21 to 24
+    comb_b6_bits = convert_bytes_to_bits(comb6)
+    comb_b7_bits = convert_bytes_to_bits([bytes_chunk[25]])[2:] # Use byte 25 and remove the 2 MSBs
+
+    final_arr = comb_b7_bits + comb_b6_bits + comb_b5_bits + comb_b4_bits
+    final_arr.reverse()
+
+    ecc_p2 = ecc_gen(final_arr)
+
+    # ECC P3 calculation
+    comb_b8_bits = convert_bytes_to_bits([bytes_chunk[25]])[:2] # Use byte 25 and keep the 2 least significant bits
+    comb9 = bytes([0, 0] + list(bytes_chunk[31:25:-1])) # Combine bytes 26 to 31 with two leading zeros
+    comb_b9_bits = convert_bytes_to_bits(comb9)
+    comb10 = bytes([0, 0, 0, 0]) # Four zero bytes
+    comb_b10_bits = convert_bytes_to_bits(comb10)
+    comb_b11_bits = convert_bytes_to_bits([0])[3:] # One zero byte and remove
+
+    final_arr = comb_b11_bits + comb_b10_bits + comb_b9_bits + comb_b8_bits
+    final_arr.reverse()
+
+    ecc_p3 = ecc_gen(final_arr)
+
+    ecc_p4 = 0 # ECC P4 is 0 as specified
+
+    return (ecc_p1, ecc_p2, ecc_p3, ecc_p4)
+
 # Function to append ECC to output buffer
 def append_ecc(input_buffer):
     output_buffer = bytearray()
@@ -76,48 +123,7 @@ def append_ecc(input_buffer):
     while input_index < sizet:
         bytes_chunk = input_buffer[input_index:input_index + 32]
 
-        if len(bytes_chunk) < 32:
-            bytes_chunk += bytes([0] * (32 - len(bytes_chunk)))
-
-        # ECC P1 calculation
-        comb1 = bytes_chunk[7::-1] # Combine bytes 0 to 7
-        comb2 = bytes_chunk[11:7:-1] # Combine bytes 8 to 11
-        comb_b1_bits = convert_bytes_to_bits(comb1)
-        comb_b2_bits = convert_bytes_to_bits(comb2)
-        comb_b3_bits = convert_bytes_to_bits([bytes_chunk[12]])[1:] # Use byte 12 and remove the MSB
-
-        final_arr = comb_b3_bits + comb_b2_bits + comb_b1_bits
-        final_arr.reverse()
-
-        ecc_p1 = ecc_gen(final_arr)
-
-        # ECC P2 calculation
-        comb_b4_bits = convert_bytes_to_bits([bytes_chunk[12]])[:1] # Use MSB of byte 12
-        comb5 = bytes_chunk[20:12:-1] # Combine bytes 13 to 20
-        comb_b5_bits = convert_bytes_to_bits(comb5)
-        comb6 = bytes_chunk[24:20:-1] # Combine bytes 21 to 24
-        comb_b6_bits = convert_bytes_to_bits(comb6)
-        comb_b7_bits = convert_bytes_to_bits([bytes_chunk[25]])[2:] # Use byte 25 and remove the 2 MSBs
-
-        final_arr = comb_b7_bits + comb_b6_bits + comb_b5_bits + comb_b4_bits
-        final_arr.reverse()
-
-        ecc_p2 = ecc_gen(final_arr)
-
-        # ECC P3 calculation
-        comb_b8_bits = convert_bytes_to_bits([bytes_chunk[25]])[:2] # Use byte 25 and keep the 2 least significant bits
-        comb9 = bytes([0, 0] + list(bytes_chunk[31:25:-1])) # Combine bytes 26 to 31 with two leading zeros
-        comb_b9_bits = convert_bytes_to_bits(comb9)
-        comb10 = bytes([0, 0, 0, 0]) # Four zero bytes
-        comb_b10_bits = convert_bytes_to_bits(comb10)
-        comb_b11_bits = convert_bytes_to_bits([0])[3:] # One zero byte and remove
-
-        final_arr = comb_b11_bits + comb_b10_bits + comb_b9_bits + comb_b8_bits
-        final_arr.reverse()
-
-        ecc_p3 = ecc_gen(final_arr)
-
-        ecc_p4 = 0 # ECC P4 is 0 as specified
+        ecc_p1, ecc_p2, ecc_p3, ecc_p4 = generate_ecc_for_chunk(bytes_chunk)
 
         # Append ECC to the block and write to output buffer
         output_buffer.extend(bytes_chunk)

@@ -33,6 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 '''Post processing for GMAC'''
 
+import io
 import argparse
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
@@ -318,28 +319,77 @@ def process_file(input_file, output_file, mode, mac_size,start_addr, auth_key, e
             f_out.write(processed_chunk)
         address += 16 # Increment address by chunk size
 
-def enc_process_data(input_data:bytearray, mode:str, mac_size:int,
-                 start_addr:int, auth_key:bytearray, enc_key:bytearray, iv:bytearray):
-    CHUNK_SIZE = 16
-    address = start_addr
-    output_data = bytearray()
-    for index in range(0, len(input_data),CHUNK_SIZE):
-        chunk = input_data[index:index+CHUNK_SIZE]
-        if(len(chunk) < 16):
+def enc_process_data(input_buffer: bytes, mode: str, mac_size: int, start_addr: int, auth_key: bytes, enc_key: bytes, iv: bytes) -> bytes:
+    """
+    Process a buffer using the given mode, authentication key, encryption key, and initialization vector.
+
+    Args:
+    - input_buffer (bytes or bytearray): Input buffer to be processed.
+    - mode (str): Mode of operation (e.g., 'gcm').
+    - mac_size (int): Size of the authentication tag.
+    - start_addr (int): Starting address.
+    - auth_key (bytes): Authentication key.
+    - enc_key (bytes): Encryption key.
+    - iv (bytes): Initialization vector.
+
+    Returns:
+    bytes: Processed output buffer.
+    """    
+    iv = reverse_array(iv)
+    address = start_addr  # Starting address
+    output_buffer = io.BytesIO()  # Create an in-memory buffer to store output
+    input_buffer = io.BytesIO(input_buffer)  # Convert input buffer to BytesIO
+    while True:
+        chunk = input_buffer.read(16)  # Read 16 bytes at a time
+        if not chunk:
+            break  # End of buffer reached
+
+        if len(chunk) < 16:
+            # Pad the chunk with zeros to make it 16 bytes long
             chunk = chunk.ljust(16, b'\x00')
-        if(mode == 'gcm'):
-            tag, processed_chunk= process_chunk(chunk, mode, auth_key, enc_key, iv, address)
-            if((address % 32) == 0):
+
+        if mode == 'gcm':
+            # GCM mode: process chunk and write authentication tag and cipher text
+            tag, processed_chunk = process_chunk(
+                chunk, mode, auth_key, enc_key, iv, address
+            )
+
+            # Write authentication tag and cipher text to output buffer
+            if (address % 32) == 0:
+                # Write cipher text only when address is a multiple of 32
                 cipher_text = processed_chunk
             else:
-               output_data.extend(tag[0:int(mac_size)])
-               output_data.extend(cipher_text)
-               output_data.extend(processed_chunk)
+                output_buffer.write(tag[0:int(mac_size)])
+                output_buffer.write(cipher_text)
+                output_buffer.write(processed_chunk)  # Write processed chunk twice
         else:
+            # Non-GCM mode: process chunk and write to output buffer
             processed_chunk = process_chunk(chunk, mode, auth_key, enc_key, iv, address)
-            output_data.extend(processed_chunk)               
-        address += 16
-    return output_data
+            output_buffer.write(processed_chunk)
+
+        address += 16  # Increment address by chunk size
+
+    # Get the output buffer as bytes
+    output = output_buffer.getvalue()
+    return output
+
+
+def enc_process_data_na(input_buffer: bytes, mac_size: int) -> bytes:
+    CHUNK_SIZE = 32
+    output_buffer = io.BytesIO()  # Create an in-memory buffer to store output
+    input_buffer = io.BytesIO(input_buffer)  # Convert input buffer to BytesIO
+    while True:
+        chunk = input_buffer.read(CHUNK_SIZE)  
+        if not chunk:
+            break  # End of buffer reached
+        output_buffer.write(b'\xff'*mac_size)
+        output_buffer.write(chunk)
+
+    # Get the output buffer as bytes
+    output = output_buffer.getvalue()
+    return output
+
+
 
 def main():
     parser = argparse.ArgumentParser(description='Process AppImage file with optional GCM and GMAC.')
