@@ -117,7 +117,7 @@ def main():
     otfaConfigFile:str|None = arguments.otfaConfigFile
     otfaConfg:OTFAConfig|None = OTFAConfig()
 
-    if otfaConfigFile is not None and os.path.exists(os.path.abspath(otfaConfigFile)) is False:
+    if otfaConfigFile is None or os.path.exists(os.path.abspath(otfaConfigFile)) is False:
         otfaConfigFile = None 
         otfaConfg.isEnabled = False
     else:
