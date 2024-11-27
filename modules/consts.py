@@ -31,7 +31,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 '''
 
 '''Module of consts'''
-SSO_CORE_ID = 0xFF
+SSO_CORE_ID = 0
 
 if __name__ == "__main__":
     pass
