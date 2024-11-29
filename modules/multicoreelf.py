@@ -26,7 +26,7 @@ class MultiCoreELF():
         '''Function to add an input ELF file to list'''
         # Try to split the fname into core ID and filename
         delim = ':'
-        core_id, filename = fname.split(delim)
+        core_id, filename = fname.split(delim, 1)
         self.elf_file_list[core_id] = os.path.realpath(filename)
 
     def add_sso(self, fname: str):
