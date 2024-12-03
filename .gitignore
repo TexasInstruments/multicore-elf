@@ -3,3 +3,4 @@
 .vscode*
 *.mcelf 
 *.mcelf_xip
+.venv/
