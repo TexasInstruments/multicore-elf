@@ -33,16 +33,68 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 '''Post processing for GMAC and CCM'''
 
 import io
+import platform
+import sys
+import os 
 import argparse
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
+from ctypes import *
+from typing import List, Optional 
+
+OS_NAME = sys.platform
+PYTHON_ARCH = list(platform.architecture())[0]
+WIN_MINGW_GCC_MACHINE_64BIT = 'x86_64-w64-mingw32'
+WIN_MINGW_GCC_MACHINE_32BIT = 'mingw32'
+LINUX_GNU_GCC_MACHINE_64BIT = 'x86_64-linux-gnu'
+LINUX_GNU_GCC_MACHINE_32BIT = 'gnu'
+
+if OS_NAME != "win32" and OS_NAME != "linux":
+    raise "Unsupported OS"
+
+class c_gmac_wrapper:
+    def __init__(self) -> None:
+    
+      def get_shared_lib_name():
+          f = "gmac.{}.{}.{}"
+          if PYTHON_ARCH == "64bit" and OS_NAME == "win32":
+              return f.format(WIN_MINGW_GCC_MACHINE_64BIT, OS_NAME, "dll")
+          elif PYTHON_ARCH == "32bit" and OS_NAME == "win32":
+              return f.format(WIN_MINGW_GCC_MACHINE_32BIT, OS_NAME, "dll")
+          elif PYTHON_ARCH == "64bit" and OS_NAME == "linux":
+              return f.format(LINUX_GNU_GCC_MACHINE_64BIT, OS_NAME, "so")
+          elif PYTHON_ARCH == "32bit" and OS_NAME == "linux":
+              return f.format(WIN_MINGW_GCC_MACHINE_32BIT, OS_NAME, "so")
+          else:
+            raise "Unsupported OS"
+          
+      file_name: str = get_shared_lib_name()
+
+      so_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "../", "c_modules", "gmac", "dist", file_name))
+
+      self.so_gmac = CDLL(so_file)
+      self.fnx = self.so_gmac.cGmac
+      self.fnx.argtypes =\
+        [POINTER(c_uint32), POINTER(c_uint32), POINTER(c_uint32), POINTER(c_uint64), POINTER(c_uint32)]
+
+
+    def call(self, ctlo:List[int], ctHi:List[int], aesData:List[int], keyA:List[int])->Optional[List[int]]:
+      ct_lo = (c_uint32*4)(*ctlo)
+      ct_hi = (c_uint32*4)(*ctHi)
+      ct_aes_data = (c_uint32*4)(*aesData)
+      key_a = (c_uint64*2)(*keyA)
+      output = (c_uint32*4)()        
+      self.fnx(ct_lo, ct_hi, ct_aes_data, key_a, output)
+      return list(output)
+
+c_gmac = c_gmac_wrapper()
 
 UINT64_MAX = 0xFFFFFFFFFFFFFFFF
 aes_data = [0]*4
 ct_lo = [0]*4
 ct_hi = [0]*4
 ccm_lo = [0]*16
-#wr_mac_addr = 0x0000
+# wr_mac_addr = 0x0000
 def cmac(auth_key,ct):
    backend = default_backend()
    chunk = bytearray([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
@@ -53,7 +105,6 @@ def cmac(auth_key,ct):
    ciphertext = encryptor.update(chunk) + encryptor.finalize()
    ciphertext=reverse_array(ciphertext)   
    return ciphertext
-
 
 
 def aes_data_mac(enc_key, iv, address):
@@ -81,6 +132,21 @@ def bit_rev(data_in,bit_len):
         reverse_num |= 1 << ((NO_OF_BITS - 1) - i);
     
     return reverse_num
+
+
+# NOTE ONLY ENCRYPTION IS TESTED (AUTHENTICATION AND AUTHENTICATION + ENCRYPTION YET TO BE TESTED)
+
+def reverse_array(arr):
+#"""Reverses the order of elements in an array. Args: arr: The list or array to be reversed. Returns: A new list with the elements in reversed order. """
+    return arr[::-1]
+
+
+def xor_address_with_iv(iv, address):
+    address_bytes = address.to_bytes(4, byteorder='big')
+    # XOR the last 4 bytes of the IV with the address bytes
+    iv[-4:] = bytes(a ^ b for a, b in zip(iv[-4:], address_bytes))
+    return iv
+
 
 def ghash(input_data, key_a):
   '''
@@ -240,20 +306,6 @@ def gmac(ct_lo, ct_hi, data_aes, key_a):
 
   return wr_mac
 
-# NOTE ONLY ENCRYPTION IS TESTED (AUTHENTICATION AND AUTHENTICATION + ENCRYPTION YET TO BE TESTED)
-
-def reverse_array(arr):
-#"""Reverses the order of elements in an array. Args: arr: The list or array to be reversed. Returns: A new list with the elements in reversed order. """
-    return arr[::-1]
-
-
-def xor_address_with_iv(iv, address):
-    address_bytes = address.to_bytes(4, byteorder='big')
-    # XOR the last 4 bytes of the IV with the address bytes
-    iv[-4:] = bytes(a ^ b for a, b in zip(iv[-4:], address_bytes))
-    return iv
-
-
 def process_chunk(chunk, mode, auth_key, enc_key, iv, address):
     exored_aes = []; wr_mac = [] ; mac_tag = []
     key_a = [0]*2
@@ -304,7 +356,9 @@ def process_chunk(chunk, mode, auth_key, enc_key, iv, address):
                 ct_hi[i] = (int.from_bytes(ciphertext[i*4:(4*i)+4], byteorder='little'))
             for i in range(len(auth_key)//8):
                 key_a[i] = (int.from_bytes(auth_key[i*8:(8*i)+8], byteorder='little'))
-            wr_mac = gmac(ct_lo, ct_hi, aes_data, key_a)
+            # wr_mac = gmac(ct_lo, ct_hi, aes_data, key_a)
+            # call c_gmac 
+            wr_mac = c_gmac.call(ct_lo, ct_hi, aes_data, key_a)
 
             for i in wr_mac:
                 mac_tag.append(i&0xFF)
@@ -444,7 +498,6 @@ def enc_process_data_na(input_buffer: bytes, mac_size: int) -> bytes:
     return output
 
 
-
 def main():
     parser = argparse.ArgumentParser(description='Process AppImage file with optional GCM and GMAC.')
     parser.add_argument('--input_path', type=str, required=True, help='Path to the input AppImage file')
@@ -470,9 +523,5 @@ def main():
     print(f"Needs to be Flashed at flash offset {hex(flash_add)}")
 
 
-
 if __name__ == "__main__":
     main()
-
-
-

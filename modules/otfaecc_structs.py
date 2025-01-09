@@ -43,47 +43,51 @@ OTFA_MODE_ENCRYPT_AUTH = 'both'
 OTFA_MODE_NO_ENCRYPT = 'na'
 OTFA_MODE_CCM = 'ccm'
 
-OTFA_MAC_SIZE_4B = 1
-OTFA_MAC_SIZE_8B = 2
-OTFA_MAC_SIZE_12B = 3
-OTFA_MAC_SIZE_16B = 4
+OTFA_MAC_SIZE_4B = 4
+OTFA_MAC_SIZE_8B = 8
+OTFA_MAC_SIZE_12B = 12
+OTFA_MAC_SIZE_16B = 16
 
-OTFA_AES_KEY_SIZE_128BIT = 1
-OTFA_AES_KEY_SIZE_256BIT = 2
+OTFA_AES_KEY_SIZE_16B = 16
+OTFA_AES_KEY_SIZE_32B = 32
 
 class otfaRegionConfig:
     def __init__(self) -> None:
         self.size:int = 0
         self.start:int = 0
-        self.authKey:bytearray = bytearray(8)
-        self.encKey:bytearray = bytearray(8)
+        self.authKeyID:int = 0
+        self.encKeyID:int = 0
+        self.authKey:str = 'authKey.key'
+        self.encKey:str = 'encKey.key'
+        self.kdSalt:str = 'kdSalt.txt'
+        self.keyFetchMode:int = 1
         self.iv:bytearray = bytearray(8)
         self.cryptoMode:int = OTFA_MODE_NO_ENCRYPT
         self.eccEnable:bool = False 
 
     def packBytes(self):
-        _frm = "<IIII32s32s32s"
-        c = 0
+        _frm = "<IIbbbbb16s"
+        cMode = 0
         if(self.cryptoMode == OTFA_MODE_AUTH):
-            c = 0
+            cMode = 0
         elif(self.cryptoMode == OTFA_MODE_ENCRYPT):
-            c = 1
+            cMode = 1
         elif(self.cryptoMode == OTFA_MODE_GCM):
-            c = 2
+            cMode = 2
         elif(self.cryptoMode == OTFA_MODE_NO_ENCRYPT):
-            c = 3
+            cMode = 3
         elif(self.cryptoMode == OTFA_MODE_CCM):
-            c = 4
+            cMode = 4
         else:
-            c = 5
-        return pack(_frm, int(self.size), int(self.start), c, 0 if self.eccEnable == False else 1, bytes(self.authKey), bytes(self.encKey), bytes(self.iv))
+            cMode = 5
+        return pack(_frm, int(self.size), int(self.start), cMode, 0 if self.eccEnable == False else 1, int(self.authKeyID), int(self.encKeyID), int(self.keyFetchMode), bytes(self.iv))
 
 class OTFAConfig:
     def __init__(self) -> None:
         self.regionConfigList:list[otfaRegionConfig] = list()
         self.mac_align: bool = True
         self.mac_size:int = OTFA_MAC_SIZE_4B
-        self.aes_key_size:int =  OTFA_AES_KEY_SIZE_128BIT
+        self.aes_key_size:int =  OTFA_AES_KEY_SIZE_16B
         self.isEnabled: bool = False 
 
     def packBytes(self):

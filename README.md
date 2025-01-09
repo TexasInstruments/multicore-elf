@@ -50,3 +50,21 @@ pip install -r requirements.txt
 - genimage.py script called in makefile of all examples and tests. It generates a .mcelf image for all the projects.
 
 - Macros for arguments 3-7 are defined in devconfig/devconfig.mak file.
+
+## Compiling C code 
+
+The assumption here is that gcc is used to compile the code on windows and linux. 
+
+`imports.mak` is the file where compiler path has been set. 
+By default it uses the compiler that is on the path of the machine.
+
+It is important to compile the c code by both 32bit and 64bit compiler. If not done, then 32bit python will not be able to call c code.
+
+Use the following command to compile the gmac code:
+	```
+	gmake -C .\c_modules\gmac\ 
+	```
+
+On windows, Download 64bit mingw-gcc from: https://winlibs.com (version >= 14.2.0). For 32bit version of mingw-gcc can be downloaded from https://sourceforge.net/projects/mingw/ (version >= 6.3.0)
+
+On Linux, gcc is already installed and hence no need to download and install it. 

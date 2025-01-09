@@ -28,23 +28,26 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+Multicore ELF module
 '''
 
-'''Multicore ELF module'''
-
 import os
+import struct
 import copy
 from typing import List
-from datetime import datetime
 from elftools.elf.elffile import ELFFile
 from .elf import ELF
 from .elf_structs import ElfConstants as ELFC
 from .consts import SSO_CORE_ID
 from .note import CustomNote
-from .otfaecc_structs import *
-from .gmac_w_ccm import *
-from .eccm import *
-import struct 
+from .otfaecc_structs import OTFAConfig
+from .otfaecc_structs import OTFA_MODE_NO_ENCRYPT
+from .otfaecc_structs import OTFA_MODE_GCM
+from .otfaecc_structs import OTFA_MODE_CCM
+from .gmac_w_ccm import process_chunk
+from .eccm import ecc_gen
 
 class OTFAECCMProcessor:
     class regionProperty:
@@ -56,10 +59,9 @@ class OTFAECCMProcessor:
             self.authKey:bytearray = bytearray()
             self.encKey:bytearray = bytearray()
             self.iv:bytearray = bytearray()
-            self.ecc_enable:bool = False 
+            self.ecc_enable:bool = False
 
     def splitInRanges(self, address:int, size:int, conf:OTFAConfig):
-        print(f"processing data for start = {hex(address)}, size = {hex(size)}")
         startAddress = address
         endAddress = address + size
         addressPointer = startAddress
@@ -74,20 +76,20 @@ class OTFAECCMProcessor:
                 reg1.start = addressPointer
                 reg1.size = st - addressPointer
                 reg2.start = st
-                reg2.size = en - st 
+                reg2.size = en - st
                 reg2.cryptoMode = otfaRegion.cryptoMode
                 reg1.mac_size = reg2.mac_size = conf.mac_size
                 reg2.authKey = otfaRegion.authKey
                 reg2.encKey = otfaRegion.encKey
                 reg2.iv = otfaRegion.iv
                 reg1.ecc_enable = reg2.ecc_enable = otfaRegion.eccEnable
-                if(reg1.size > 0):
+                if reg1.size > 0:
                     subRegs.append(reg1)
                 subRegs.append(reg2)
-                addressPointer = en 
+                addressPointer = en
 
         # Add in any remaining region
-        if(addressPointer < (startAddress + size)):
+        if addressPointer < (startAddress + size):
             reg = OTFAECCMProcessor.regionProperty()
             reg.start = addressPointer
             reg.size = (startAddress + size) - addressPointer
@@ -97,7 +99,7 @@ class OTFAECCMProcessor:
             subRegs.append(reg)
 
         if len(subRegs) == 0:
-            # there was no overlap of target range with the 
+            # there was no overlap of target range with the
             # OTFA region so put the target region as is.
             reg = OTFAECCMProcessor.regionProperty()
             reg.start = address
@@ -107,13 +109,21 @@ class OTFAECCMProcessor:
             reg.ecc_enable = False
             subRegs.append(reg)
 
-        for r in subRegs:
-            print(f"start: {hex(r.start)}, size: {hex(r.size)}, eccEn: {r.ecc_enable}, cryptoMode: {r.cryptoMode}")
-        
         return subRegs
 
-    def process_for_safety_and_security(self,input_buffer: bytes, address:int, otfaEn:bool, eccEn:bool, mode: str, mac_size: int, auth_key: bytes, enc_key: bytes, iv: bytes) -> bytes:
-        
+    def process_for_safety_and_security(
+            self,
+            input_buffer: bytes,
+            address:int,
+            otfaEn:bool,
+            eccEn:bool,
+            mode: str,
+            mac_size: int,
+            auth_key: bytes,
+            enc_key: bytes,
+            iv: bytes
+        ) -> bytes:
+
         def __convert_bytes_to_bits(bytes_data):
             bits = []
             for byte in bytes_data:
@@ -124,7 +134,8 @@ class OTFAECCMProcessor:
         CHUNK_SIZE = 32
         iv = iv[::-1]
         output_buffer  = bytearray()
-        chunks_len = int(len(input_buffer) / CHUNK_SIZE) + (1 if (len(input_buffer) % CHUNK_SIZE) != 0 else 0)
+        chunks_len = int(len(input_buffer) / CHUNK_SIZE) +\
+            (1 if (len(input_buffer) % CHUNK_SIZE) != 0 else 0)
         for i in range(chunks_len):
             chunk = input_buffer[(i*32):((i+1)*32)]
             chunk = chunk.ljust(CHUNK_SIZE, b'\x00')
@@ -134,20 +145,26 @@ class OTFAECCMProcessor:
             mac_bytes = bytearray(b'\x00'*int(mac_size))
             ecc_bytes = bytearray()
 
-            if(otfaEn == True):
-                if(mode == OTFA_MODE_GCM or mode == OTFA_MODE_CCM):
-                    tag_high,processed_chunk_high = process_chunk(chunk_high, mode, auth_key, enc_key, iv, address + 32*i)
-                    tag_low,processed_chunk_low = process_chunk(chunk_low, mode, auth_key, enc_key, iv, address + 32*i + 16)
+            if otfaEn == True:
+                if (mode == OTFA_MODE_GCM) or (mode == OTFA_MODE_CCM):
+                    _,processed_chunk_high = process_chunk(
+                        chunk_high, mode, auth_key,
+                        enc_key, iv, address + 32*i
+                    )
+                    tag_low,processed_chunk_low = process_chunk(
+                        chunk_low, mode, auth_key,
+                        enc_key, iv, address + 32*i + 16
+                    )
                     mac_bytes = tag_low[0:int(mac_size)]
                     output_buffer.extend(mac_bytes)
                     processed_chunk = bytearray(processed_chunk_high)
                     processed_chunk.extend(processed_chunk_low)
                 else:
                     output_buffer.extend(mac_bytes)
-                    
+
             output_buffer.extend(processed_chunk)
 
-            if(eccEn == True):
+            if eccEn == True:
                 _addr = __convert_bytes_to_bits(bytearray(0).ljust(4, b'\x00'))[0:27]
                 _mac = mac_bytes.ljust(16, b'\x00')
                 processed_chunk_forecc = bytearray()
@@ -155,12 +172,12 @@ class OTFAECCMProcessor:
                 processed_chunk_forecc.extend(__convert_bytes_to_bits(_mac))
                 processed_chunk_forecc.extend(_addr)
                 processed_chunk_forecc.extend(b'\x00')
-                
+
                 a0 = processed_chunk_forecc[(103*0):(103*1)]
                 a1 = processed_chunk_forecc[(103*1):(103*2)]
                 a2 = processed_chunk_forecc[(103*2):(103*3)]
                 a3 = processed_chunk_forecc[(103*3):(103*4)]
-                
+
                 w0 = ecc_gen(a0)
                 w1 = ecc_gen(a1)
                 w2 = ecc_gen(a2)
@@ -172,7 +189,6 @@ class OTFAECCMProcessor:
                 ecc_bytes.extend(struct.pack('>B', w3)) # ECC P4
                 output_buffer.extend(ecc_bytes)
 
-
         return output_buffer
 
     def process(self, buff:bytearray, address:int, size:int, config:OTFAConfig):
@@ -180,31 +196,25 @@ class OTFAECCMProcessor:
         rgns = self.splitInRanges(address, size, config)
         # if ecc is enabled even in a single region, then enable it in all the regions
         doEnableEcc = False
-        doEnableMac = False 
+        doEnableMac = False
         for otfaRgn in config.regionConfigList:
-            if(otfaRgn.eccEnable == True):
+            if otfaRgn.eccEnable == True:
                 doEnableEcc = True
-            if(otfaRgn.cryptoMode != OTFA_MODE_NO_ENCRYPT):
-                doEnableMac = True 
-        
+            if otfaRgn.cryptoMode != OTFA_MODE_NO_ENCRYPT:
+                doEnableMac = True
+
         # if any crypo is enabled is any region then enable for all regions
         for r in rgns:
-            stOffset = (r.start - address)
-            enOffset = (r.start + r.size - address)
+            stOffset =  r.start - address
+            enOffset = r.start + r.size - address
             dataBuff = bytearray(buff[stOffset:enOffset])
-            macSize:int = r.mac_size * 4
+            macSize:int = r.mac_size
             flash_offset = r.start & 0xFFFFFFF
-            dataBuff = self.process_for_safety_and_security(dataBuff, flash_offset, doEnableMac, doEnableEcc, r.cryptoMode, macSize, 
-                                                 bytearray(r.authKey), bytearray(r.encKey), bytearray(r.iv))
-            
-            # if(doEnableMac == True):
-            #     if(r.cryptoMode != OTFA_MODE_NO_ENCRYPT):
-            #         flash_offset = r.start & 0xFFFFFFF
-            #         dataBuff = enc_process_data(dataBuff, r.cryptoMode, macSize, flash_offset, bytearray(r.authKey), bytearray(r.encKey), bytearray(r.iv))
-            #     else:
-            #         dataBuff = enc_process_data_na(dataBuff, macSize)
-            # if(doEnableEcc == True):
-            #     dataBuff = append_ecc(dataBuff)
+            dataBuff = self.process_for_safety_and_security(
+                dataBuff, flash_offset, doEnableMac,
+                doEnableEcc, r.cryptoMode, macSize,
+                bytearray(r.authKey), bytearray(r.encKey), bytearray(r.iv)
+            )
             processedData.extend(dataBuff)
         return processedData
 
@@ -231,14 +241,14 @@ class MultiCoreELF():
         # Try to split the fname into core ID and filename
         delim = ':'
         core_id, filename = fname.split(delim)
-        if(os.path.exists(filename)):
+        if os.path.exists(filename):
             self.elf_file_list[core_id] = os.path.realpath(filename)
         else:
             self.log_error(f"file \"{filename}\" doesnot exist, skipping this")
 
     def add_sso(self, fname: str):
         '''Function to add an input SSO file to list'''
-        if(os.path.exists(fname)):
+        if os.path.exists(fname):
             self.elf_file_list[SSO_CORE_ID] = os.path.realpath(fname)
         else:
             self.log_error(f"file \"{fname}\" doesnot exist, skipping this")
@@ -267,52 +277,58 @@ class MultiCoreELF():
             a_range = bool(self.accept_range.start <= phent['p_vaddr'] <= self.accept_range.end)
 
         return (i_range and a_range)
-    
-    def translateAddress(self, oldAddress:int, config:OTFAConfig) -> int: 
+
+    def translateAddress(self, oldAddress:int, config:OTFAConfig) -> int:
         na = 0
-        eccSz = 0   
+        eccSz = 0
         macsz = 0
         for rgn in config.regionConfigList:
             if rgn.eccEnable == True:
-                eccSz = 4 
+                eccSz = 4
             if rgn.cryptoMode != OTFA_MODE_NO_ENCRYPT:
-                macsz = 4 * config.mac_size
+                macsz = config.mac_size
         na = int(oldAddress * (32 + eccSz +  macsz) / 32)
-        print("Translated address {} to {}".format(hex(oldAddress), hex(na)))
-        return na  
+        return na
 
     def process_for_otfaeccm(self, oelf:ELFFile) -> None:
         if(self.otfaConfig.isEnabled == False or len(oelf.segmentlist) == 0):
             return
-        # deepcopy the segmentlist and then update 
-        # each segment 
+        # deepcopy the segmentlist and then update
+        # each segment
         processor = OTFAECCMProcessor()
         segments = copy.copy(oelf.segmentlist)
         oelf.segmentlist = []
         for seg in segments:
             data = seg['data']
-            if(seg['header'].header.paddr % 32 == 0):
-                print("Encrypting {}".format(seg['header'].header))
-                t0 = datetime.now()
-                processedData = processor.process(data, seg['header'].header.paddr, seg['header'].header.memsz, self.otfaConfig)
-                t1 = datetime.now()
-                print("Encryption done...time taken = {}".format(t1-t0))
+            if (seg['header'].header.paddr % 32) == 0:
+                processedData = processor.process(
+                    data, seg['header'].header.paddr,
+                    seg['header'].header.memsz, self.otfaConfig
+                )
                 seg['data'] = processedData
-                seg['header'].header.memsz = seg['header'].header.filesz = len(processedData)
+                seg['header'].header.memsz = len(processedData)
+                seg['header'].header.filesz = len(processedData)
                 paddr = seg['header'].header.paddr
-                flashBaseAddress = self.accept_range.start 
-                seg['header'].header.paddr = seg['header'].header.vaddr = flashBaseAddress + self.translateAddress(paddr - flashBaseAddress, self.otfaConfig)
-                with open("processed_data_{}.bin".format(seg['header'].header.vaddr), "wb") as of:
-                    of.write(bytearray(processedData))
-                with open("raw_data_{}.bin".format(seg['header'].header.vaddr), "wb") as of:
-                    of.write(bytearray(data))
-                    
+                flashBaseAddress = self.accept_range.start
+                _naddr = flashBaseAddress + self.translateAddress(
+                    paddr - flashBaseAddress, self.otfaConfig
+                )
+                seg['header'].header.paddr = _naddr
+                seg['header'].header.vaddr = _naddr
+
+                # with open("processed_data_{}.bin".format(seg['header'].header.vaddr), "wb") as of:
+                #     of.write(bytearray(processedData))
+                # with open("raw_data_{}.bin".format(seg['header'].header.vaddr), "wb") as of:
+                #     of.write(bytearray(data))
+
             else:
-                raise Exception("Segment not aligned to 32B, {}".format(seg['header'].header)) 
+                raise Exception("Segment not aligned to 32B, {}".format(seg['header'].header))
         oelf.segmentlist = segments
 
     def generate_multicoreelf(self, max_segment_size: int, dump_segments=False, segmerge=False,
-        tol_limit=0, ignore_context=False, xlat_file_path=None, custom_note: CustomNote = None, add_rs_note=False):
+        tol_limit=0, ignore_context=False, xlat_file_path=None,
+        custom_note: CustomNote = None, add_rs_note=False
+    ):
         '''Function to finally generate the multicore elf file'''
         # Check if there are any 64 bit ELFs in the list
         is64, core64 = self.__check_for_elf64()
@@ -341,14 +357,20 @@ class MultiCoreELF():
         elf_obj.merge_segments(tol_limit=tol_limit,
                             segmerge=segmerge,
                             ignore_context=ignore_context)
-        
+
         # for all the segments perform the encryption/ECC processing and change the
-        # load address and the size 
+        # load address and the size
         self.process_for_otfaeccm(elf_obj)
-        
+
         # add note segment
         # make final elf
-        elf_obj.make_elf(self.ofname, xlat_file_path, self.eplist, custom_note=custom_note, add_rs_note=add_rs_note)
+        elf_obj.make_elf(
+            self.ofname,
+            xlat_file_path,
+            self.eplist,
+            custom_note=custom_note,
+            add_rs_note=add_rs_note
+        )
 
         if dump_segments:
             elf_obj.dbg_dumpsegments()

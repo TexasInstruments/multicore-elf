@@ -4,3 +4,4 @@
 *.mcelf 
 *.mcelf_xip
 .venv/
+*.bin
