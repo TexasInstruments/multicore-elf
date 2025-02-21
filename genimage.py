@@ -16,6 +16,7 @@ def generate_image(arguments, m_elf: MultiCoreELF, custom_note: CustomNote = Non
                                 tol_limit=arguments.tolerance_limit,
                                 ignore_context=arguments.ignore_context,
                                 xlat_file_path=arguments.xlat,
+                                sw_version=arguments.sw_version,
                                 custom_note=custom_note)
 
 def main():

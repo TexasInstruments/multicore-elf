@@ -243,12 +243,13 @@ class ELF():
 
         self.segmentlist = new_list
 
-    def __update_elfh(self):
+    def __update_elfh(self, sw_version):
         ephnum = len(self.segmentlist)
         self.elfheader.header.e_phnum = ephnum
         self.elfheader.header.e_phoff = self.elfheader.get_size()
         self.elfheader.header.e_shoff = 0
         self.elfheader.header.e_shnum = 0
+        self.elfheader.header.e_version = sw_version
         self.bstream.extend(self.elfheader.pack())
 
     def dbg_dumpsegments(self):
@@ -256,7 +257,7 @@ class ELF():
         for seg in self.segmentlist:
             print(f"{seg['header'].header}, SIZE = {hex(len(seg['data']))} : {seg['context']}")
 
-    def make_elf(self, fname, xlat_file_path, eplist, custom_note: CustomNote = None):
+    def make_elf(self, fname, xlat_file_path, eplist, sw_version=None, custom_note: CustomNote = None):
         '''Create the elf file and write it to the filename provided'''
         # check if elf header is added
         if not self.eh_added:
@@ -279,7 +280,7 @@ class ELF():
         self.__generate_pht()
 
         # update and add elf header
-        self.__update_elfh()
+        self.__update_elfh(sw_version)
 
         # now add PHT
         for seg in self.segmentlist:

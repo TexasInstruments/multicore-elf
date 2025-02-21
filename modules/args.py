@@ -34,6 +34,7 @@ def get_args():
     my_parser.add_argument('-o', '--output', required=False, default='multicore_elf.out')
     my_parser.add_argument('--xip', required=False, type=xip_addr_type, default=None)
     my_parser.add_argument('--xlat', required=False, default=None)
+    my_parser.add_argument('--sw_version', required=False, type=lambda x: int(x, 0), default=None)
 
     return my_parser.parse_args()
 
