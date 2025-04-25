@@ -92,69 +92,74 @@ def getValidateOtfaConfig(filePath:str) -> OTFAConfig:
                             size_hex = conf['regions'][i]['size']
                             size_decimal = int(size_hex,16)
                             regconf.size = size_decimal
+                            regconf.encKey = [0] * 16
+                            regconf.authKey = [0] * 16
                             if('start' in conf['regions'][i]):
                                 start_hex = conf['regions'][i]['start']
                                 start_decimal = int(start_hex,16)
                                 regconf.start = start_decimal
+                            if('cryptoMode' in conf['regions'][i]):
+                                regconf.cryptoMode = conf['regions'][i]['cryptoMode']
                             if('authKey' in conf['regions'][i]):   
                                     authKeyFile = conf['regions'][i]['authKey']
                                     authKeyValue = None
-                                    with open(authKeyFile,"rb") as fp1:
-                                        authKeyValue = fp1.read().strip()
-                                        if((conf['regions'][i]['authKeyID']) == 1):
-                                            #root key used, derive key using HKDF function
-                                            print("\nKey ID = 1, deriving key from authentication key provided")
-                                            isalt = get_key_derivation_salt(conf['regions'][i]['kdSalt'])
-                                            isalt = bytearray(binascii.unhexlify(isalt))
-                                            derivedAuthKey = hkdf(32,authKeyValue,isalt)
-                                            fullAuthKey = binascii.hexlify(derivedAuthKey).decode('utf-8')
-                                        else:
-                                            fullAuthKey = binascii.hexlify(authKeyValue).decode('utf-8')
-                                        if('keyFetchMode' in conf['regions'][i]):
-                                            if(conf['regions'][i]['keyFetchMode'] == 1):
-                                                #assign first 16 bytes (value is in hex, so 32 nibbles)
-                                                StringAuthKey = fullAuthKey[:32]
-                                                regconf.authKey = list(bytearray.fromhex(StringAuthKey))
-                                            elif(conf['regions'][i]['keyFetchMode'] == 2):
-                                                #assign last 16 bytes
-                                                StringAuthKey = fullAuthKey[-32:]
-                                                regconf.authKey = list(bytearray.fromhex(StringAuthKey))
+                                    if regconf.cryptoMode != OTFA_MODE_NO_ENCRYPT: 
+                                        with open(authKeyFile,"rb") as fp1:
+                                            authKeyValue = fp1.read().strip()
+                                            if((conf['regions'][i]['authKeyID']) == 1):
+                                                #root key used, derive key using HKDF function
+                                                print("\nKey ID = 1, deriving key from authentication key provided")
+                                                isalt = get_key_derivation_salt(conf['regions'][i]['kdSalt'])
+                                                isalt = bytearray(binascii.unhexlify(isalt))
+                                                derivedAuthKey = hkdf(32,authKeyValue,isalt)
+                                                fullAuthKey = binascii.hexlify(derivedAuthKey).decode('utf-8')
                                             else:
-                                                # Error, keyFetchMode should be an integer between 1 and 3
-                                                print("Please enter valid keyFetchMode")
+                                                fullAuthKey = binascii.hexlify(authKeyValue).decode('utf-8')
+                                            if('keyFetchMode' in conf['regions'][i]):
+                                                regconf.keyFetchMode = conf['regions'][i]['keyFetchMode']
+                                                if(conf['regions'][i]['keyFetchMode'] == 1):
+                                                    #assign first 16 bytes (value is in hex, so 32 nibbles)
+                                                    StringAuthKey = fullAuthKey[:32]
+                                                    regconf.authKey = list(bytearray.fromhex(StringAuthKey))
+                                                elif(conf['regions'][i]['keyFetchMode'] == 2):
+                                                    #assign last 16 bytes
+                                                    StringAuthKey = fullAuthKey[-32:]
+                                                    regconf.authKey = list(bytearray.fromhex(StringAuthKey))
+                                                else:
+                                                    # Error, keyFetchMode should be an integer between 1 and 3
+                                                    print("Please enter valid keyFetchMode")                                        
                             if('encKey' in conf['regions'][i]):
                                     encKeyFile = conf['regions'][i]['encKey']
                                     encKeyValue = None
-                                    with open(encKeyFile,"rb") as fp2:
-                                        encKeyValue = fp2.read().strip()
-                                        if((conf['regions'][i]['encKeyID']) == 1):
-                                            #root key used, derive key using HKDF function
-                                            print("\nKey ID = 1, deriving key from encryption key provided")
-                                            isalt = get_key_derivation_salt(conf['regions'][i]['kdSalt'])
-                                            isalt = bytearray(binascii.unhexlify(isalt))
-                                            derivedEncKey = hkdf(32,encKeyValue,isalt)
-                                            fullEncKey = binascii.hexlify(derivedEncKey).decode('utf-8')
-                                        else:
-                                            fullEncKey = binascii.hexlify(encKeyValue).decode('utf-8')
-                                        if('keyFetchMode' in conf['regions'][i]):
-                                            if(conf['regions'][i]['keyFetchMode'] == 1):
-                                                #assign first 16 bytes (value is in hex, so 32 nibbles)
-                                                StringEncKey = fullEncKey[:32]
-                                                regconf.encKey = list(bytearray.fromhex(StringEncKey))
-                                            elif(conf['regions'][i]['keyFetchMode'] == 2):
-                                                #assign last 16 bytes
-                                                StringEncKey = fullEncKey[-32:]
-                                                regconf.encKey = list(bytearray.fromhex(StringEncKey))
+                                    if regconf.cryptoMode != OTFA_MODE_NO_ENCRYPT: 
+                                        with open(encKeyFile,"rb") as fp2:
+                                            encKeyValue = fp2.read().strip()
+                                            if((conf['regions'][i]['encKeyID']) == 1):
+                                                #root key used, derive key using HKDF function
+                                                print("\nKey ID = 1, deriving key from encryption key provided")
+                                                isalt = get_key_derivation_salt(conf['regions'][i]['kdSalt'])
+                                                isalt = bytearray(binascii.unhexlify(isalt))
+                                                derivedEncKey = hkdf(32,encKeyValue,isalt)
+                                                fullEncKey = binascii.hexlify(derivedEncKey).decode('utf-8')
                                             else:
-                                                # Error, keyFetchMode should be an integer between 1 and 3
-                                                print("Please enter valid keyFetchMode")
+                                                fullEncKey = binascii.hexlify(encKeyValue).decode('utf-8')
+                                            if('keyFetchMode' in conf['regions'][i]):
+                                                if(conf['regions'][i]['keyFetchMode'] == 1):
+                                                    #assign first 16 bytes (value is in hex, so 32 nibbles)
+                                                    StringEncKey = fullEncKey[:32]
+                                                    regconf.encKey = list(bytearray.fromhex(StringEncKey))
+                                                elif(conf['regions'][i]['keyFetchMode'] == 2):
+                                                    #assign last 16 bytes
+                                                    StringEncKey = fullEncKey[-32:]
+                                                    regconf.encKey = list(bytearray.fromhex(StringEncKey))
+                                                else:
+                                                    # Error, keyFetchMode should be an integer between 1 and 3
+                                                    print("Please enter valid keyFetchMode")
                             if('authKeyID' in conf['regions'][i]): 
                                 regconf.authKeyID = conf['regions'][i]['authKeyID']
                             if('encKeyID' in conf['regions'][i]): 
                                 regconf.encKeyID = conf['regions'][i]['encKeyID']
                             regconf.iv = gen_IV()
-                            if('cryptoMode' in conf['regions'][i]):
-                                regconf.cryptoMode = conf['regions'][i]['cryptoMode']
                             if('eccEnable' in conf['regions'][i]):
                                 regconf.eccEnable = conf['regions'][i]['eccEnable']
                             otfaReg.append(regconf)

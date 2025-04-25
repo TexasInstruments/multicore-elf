@@ -315,12 +315,6 @@ class MultiCoreELF():
                 )
                 seg['header'].header.paddr = _naddr
                 seg['header'].header.vaddr = _naddr
-
-                # with open("processed_data_{}.bin".format(seg['header'].header.vaddr), "wb") as of:
-                #     of.write(bytearray(processedData))
-                # with open("raw_data_{}.bin".format(seg['header'].header.vaddr), "wb") as of:
-                #     of.write(bytearray(data))
-
             else:
                 raise Exception("Segment not aligned to 32B, {}".format(seg['header'].header))
         oelf.segmentlist = segments
