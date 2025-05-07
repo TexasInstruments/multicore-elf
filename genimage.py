@@ -50,23 +50,28 @@ def generate_image(arguments, m_elf: MultiCoreELF, add_rs_note = False, custom_n
 
     if arguments.sso is not None:
         for ifname in arguments.sso:
-            m_elf.add_sso(ifname[0])
+            if ifname[0] == 'None' or ifname[0] == 'none':
+                arguments.sso = None
+            else:
+                m_elf.add_sso(ifname[0])
 
     # Set segment merge flag based on input string "true/false"
     segment_merge_flag = False
 
-    if (arguments.merge_segments.upper() == "TRUE"):
-        segment_merge_flag = True
-    else:
-        segment_merge_flag = False
+    if arguments.merge_segments is not None:
+        if (arguments.merge_segments == "True" or arguments.merge_segments == "true"):
+            segment_merge_flag = True
+        else:
+            segment_merge_flag = False
 
     # Set ignore context flag based on input string "true/false"
     ignore_context_flag = False
 
-    if (arguments.ignore_context.upper() == "TRUE"):
-        ignore_context_flag = True
-    else:
-        ignore_context_flag = False
+    if arguments.ignore_context is not None:
+        if (arguments.ignore_context == "True" or arguments.ignore_context == "true"):
+            ignore_context_flag = True
+        else:
+            ignore_context_flag = False
 
     # Generate multicoreelf
     m_elf.generate_multicoreelf(max_segment_size=arguments.max_segment_size,
@@ -213,7 +218,7 @@ def main():
     else:
         otfaConfg = getValidateOtfaConfig(otfaConfigFile)
 
-    if arguments.xlat is not None and arguments.xlat.strip() == "":
+    if arguments.xlat is None or arguments.xlat == "none" or arguments.xlat == "None":
         arguments.xlat = None
 
     is_xip = bool(arguments.xip is not None)
@@ -236,7 +241,6 @@ def main():
         ofname=arguments.output,
         ignore_range=ignore_range
         )
-    m_elf_xip.otfaConfig.isEnabled = False
     generate_image(arguments, m_elf, add_rs_note=True, custom_note=otfaConfigNote)
 
 if __name__ == "__main__":

@@ -38,8 +38,9 @@ from modules import desc
 def xip_addr_type(arg_val: str) -> tuple:
     '''Custom type to take xip arguments'''
 
+    # Use default flash region if none is specified
     if arg_val == 'none' or arg_val == 'None':
-        return None
+        arg_val = '0x60000000:0x68000000'
 
     parts = arg_val.split(':')
     if len(parts) != 2:
@@ -62,27 +63,36 @@ def get_args():
     '''Abstraction layer to fetch arguments via argparse module'''
     my_parser = argparse.ArgumentParser(description=desc.G_TOOL_DEFINITION)
     my_parser.add_argument('-i', '--core-img', required=True, action='append', nargs='*', \
-                           help='Specify the individual ELF images. \
+                            help='Specify the individual ELF images. \
                             To be specified as core_num:ELF_image. \
                                 Example: --core-img=0:core0_binary.out')
-    my_parser.add_argument('-s', '--sso', required=False, action='append', nargs='*')
-    my_parser.add_argument('--merge-segments', required=True, type=str, default=False)
-    my_parser.add_argument('-t', '--tolerance-limit', type=int, required=True, default=0)
-    my_parser.add_argument('--ignore-context', required=True, type=str, default=False)
-    my_parser.add_argument('-o', '--output', required=True, type=str)
-    my_parser.add_argument('--xip', required=True, type=xip_addr_type, default=None,\
-                           help='Provide the start and end address seperated by colon. \
+    
+    my_parser.add_argument('-s', '--sso', required=False, action='append', nargs='*', \
+                            default=None, help='Path to the SSO binary file.')
+    
+    my_parser.add_argument('-o', '--output', required=True, type=str, \
+                            help='Specify the output file name.')
+    
+    my_parser.add_argument('--xip', required=True, type=xip_addr_type, \
+                            help='Provide the start and end address seperated by colon. \
                             This will generate {multicore_elf.out_xip}. \
-                                Example: --xip=0x60100000:0x60200000')
-    my_parser.add_argument('--xlat', required=True, type=str, default=None, \
+                            Example: --xip=0x60100000:0x60200000. \
+                            Since this is a mandatory argument, if there are no xip regions, \
+                            use --xip=None' )
+    
+    my_parser.add_argument('--merge-segments', required=False, type=str, default=False)
+    my_parser.add_argument('-t', '--tolerance-limit', type=int, required=False, default=0)
+    my_parser.add_argument('--ignore-context', required=False, type=str, default=False)
+    my_parser.add_argument('--max-segment-size', required=False, type=int, default=8192, \
+                            help="Maximum allowed size for a loadable segment. \
+                            This option is not honored when merge segments is set to True")
+    
+    my_parser.add_argument('--xlat', required=False, type=str, default=None, \
                            help="Path to device JSON file inside the \
                             deviceData/AddrTranslate folder")
-    my_parser.add_argument('--max_segment_size', required=True, type=int, default=None, \
-                           help="Maximum allowed size for a loadable segment. \
-                             This option is not honored when merge segments is set to True")
 
     my_parser.add_argument('--otfaConfigFile', required=False, type=str, default=None, \
-                           help="Path to json file containing the otfa config")
+                            help="Path to json file containing the otfa config")
     return my_parser.parse_args()
 
 if __name__ == "__main__":

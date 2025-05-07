@@ -28,12 +28,12 @@ pip install -r requirements.txt
 
 5. --ignore-context : Enable merging of segments that are of different cores. Default value is false.
 
-6. --xip : XIP section's start and end address seperated by a colon. It creates a new file <filename>.mcelf_xip. Default value is 'none' (XIP is disabled). To enable XIP creation:
+6. --xip : XIP section's start and end address seperated by a colon. It creates a new file <filename>.mcelf_xip. It is a mandatory argument. In case of no XIP regions, use --xip=None (XIP is disabled even though file exists). Argument format when XIP region exists:
 	```
 	--xip=0x60100000:0x60200000
 	```
 
-7. --xlat : SOC specific Address Translation. SOC JSON located in devideData/AddrTranslate folder. Default value is "" (empty string). (UNDER DEVELOPMENT)
+7. --xlat : SOC specific Address Translation. SOC JSON located in devideData/AddrTranslate folder. Default value is 'None'. (UNDER DEVELOPMENT, RESERVED FOR FUTURE USE)
 	```
 	--xlat=deviceData/AddrTranslate/am263xjson
 	```
@@ -42,6 +42,8 @@ pip install -r requirements.txt
 
 9. --max_segment_size : Maximum allowed size of a loadable segment. This feature can only be used with merge_segments disabled. Default values is 8192 bytes.
 
+10. --otfaConfigFile : Path to JSON file containing the OTFA config. Disabled by default with value None.
+
 
 ### MCUSDK integration
 
@@ -49,7 +51,7 @@ pip install -r requirements.txt
 
 - genimage.py script called in makefile of all examples and tests. It generates a .mcelf image for all the projects.
 
-- Macros for arguments 3-7 are defined in devconfig/devconfig.mak file.
+- Macros for arguments 3-8 are defined in devconfig/devconfig.mak file.
 
 ## Compiling C code 
 
