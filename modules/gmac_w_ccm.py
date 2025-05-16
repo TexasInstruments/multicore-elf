@@ -48,8 +48,9 @@ WIN_MINGW_GCC_MACHINE_64BIT = 'x86_64-w64-mingw32'
 WIN_MINGW_GCC_MACHINE_32BIT = 'mingw32'
 LINUX_GNU_GCC_MACHINE_64BIT = 'x86_64-linux-gnu'
 LINUX_GNU_GCC_MACHINE_32BIT = 'gnu'
+APPLE_GNU_GCC_64BIT          = 'arm64-apple-darwin'
 
-if OS_NAME != "win32" and OS_NAME != "linux":
+if OS_NAME != "win32" and OS_NAME != "linux" and OS_NAME != "darwin":
     raise "Unsupported OS"
 
 class c_gmac_wrapper:
@@ -65,6 +66,8 @@ class c_gmac_wrapper:
               return f.format(LINUX_GNU_GCC_MACHINE_64BIT, OS_NAME, "so")
           elif PYTHON_ARCH == "32bit" and OS_NAME == "linux":
               return f.format(WIN_MINGW_GCC_MACHINE_32BIT, OS_NAME, "so")
+          elif PYTHON_ARCH == "64bit" and OS_NAME == "darwin":
+              return f.format(APPLE_GNU_GCC_64BIT, OS_NAME, "dylib")
           else:
             raise "Unsupported OS"
           
