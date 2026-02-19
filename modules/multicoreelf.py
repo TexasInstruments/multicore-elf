@@ -10,7 +10,7 @@ class MultiCoreELF():
     '''Multicore ELF Object'''
     def __init__(self, ofname='multicoreelf.out', little_endian=True,
                 ignore_range=None, accept_range=None) -> None:
-        self.elf_file_list = {}
+        self.elf_file_list = []
         self.metadata_added = False
         self.little_endian = little_endian
         self.ofname = ofname
@@ -27,17 +27,17 @@ class MultiCoreELF():
         # Try to split the fname into core ID and filename
         delim = ':'
         core_id, filename = fname.split(delim, 1)
-        self.elf_file_list[core_id] = os.path.realpath(filename)
+        self.elf_file_list.append((core_id, os.path.realpath(filename)))
 
     def add_sso(self, fname: str):
         '''Function to add an input SSO file to list'''
-        self.elf_file_list[SSO_CORE_ID] = os.path.realpath(fname)
+        self.elf_file_list.append((SSO_CORE_ID, os.path.realpath(fname)))
 
     def __check_for_elf64(self):
         class_index = ELFC.ELFCLASS_IDX.value
         is64 = False
         core64 = 0
-        for core_id, fname in self.elf_file_list.items():
+        for core_id, fname in self.elf_file_list:
             with open(fname, 'rb') as f_ptr:
                 check_bytes = f_ptr.read(class_index + 1)
                 if check_bytes[class_index] == ELFC.ELFCLASS64.value:
@@ -71,12 +71,13 @@ class MultiCoreELF():
         # if there are ELF64s, copy ELF header from the ELF64. Else pick the first one
 
         if is64:
-            elf_obj.add_eheader_from_elf(self.elf_file_list[core64])
+            fname = next(fname for cid, fname in self.elf_file_list if cid == core64)
+            elf_obj.add_eheader_from_elf(fname)
         else:
-            fname = next(iter(self.elf_file_list.values()))
+            fname = self.elf_file_list[0][1]
             elf_obj.add_eheader_from_elf(fname)
 
-        for core_id, fname in self.elf_file_list.items():
+        for core_id, fname in self.elf_file_list:
             elf_fp = open(fname, 'rb')
             elf_o = ELFFile(elf_fp)
             self.eplist[core_id] = elf_o.header['e_entry']
