@@ -1,43 +1,12 @@
-'''
-Copyright (C) 2024 Texas Instruments Incorporated
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions
-are met:
-
-  Redistributions of source code must retain the above copyright
-  notice, this list of conditions and the following disclaimer.
-
-  Redistributions in binary form must reproduce the above copyright
-  notice, this list of conditions and the following disclaimer in the
-  documentation and/or other materials provided with the
-  distribution.
-
-  Neither the name of Texas Instruments Incorporated nor the names of
-  its contributors may be used to endorse or promote products derived
-  from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-'''
-
 '''ELF Module'''
-
-import subprocess
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from elftools.elf.elffile import Segment
-from .elf_structs import elf_header, elf_prog_header
-from .elf_structs import ElfConstants as ELFC, PT_TYPE_DICT
-from .addtranslate import address_translate as xlat
-from .note import get_note_vendor, get_note_segment_map, \
+from modules.elf_structs import elf_header, elf_prog_header
+from modules.elf_structs import ElfConstants as ELFC, PT_TYPE_DICT
+from modules.addtranslate import address_translate as xlat
+from modules.note import get_note_vendor, get_note_segment_map, \
                 get_note_custom, get_note_entrypoints, CustomNote
 
 class ELFHeader():
@@ -96,7 +65,7 @@ class ELFProgramHeader():
         self.header = self.format.parse(bytearray(self.size))
 
         if isinstance(data, Segment):
-            self.data = data
+            self.data = data    
             self.header.type = PT_TYPE_DICT[data.header['p_type']]
             if is64:
                 self.header.flags_64 = data.header['p_flags']
@@ -149,40 +118,10 @@ class ELF():
         '''Function to add segment to the internal segment list'''
         self.segmentlist.append({"header": phent, "data": segdata, "context": context})
 
-    def add_segment_from_elf(self, segment, max_segment_size, context = 0):
+    def add_segment_from_elf(self, segment, context = 0):
         '''Function to add segment from ELFFile segment list'''
-
-        size_left = segment.header['p_filesz']
-        segment_data=bytearray(segment.data())
-
-        current_seg_count = 0
-
-        while (size_left >= max_segment_size):
-            phent = ELFProgramHeader(segment, little_endian=self.little_endian, is64=self.is64)
-            phent.header.vaddr += current_seg_count * max_segment_size
-            phent.header.paddr += current_seg_count * max_segment_size 
-            phent.header.filesz = max_segment_size
-            phent.header.memsz = max_segment_size
-            if (current_seg_count > 0):
-                phent.header.align = 1
-            self.add_segment(phent=phent,
-                             segdata=segment_data[current_seg_count * max_segment_size : (current_seg_count + 1) * max_segment_size],
-                             context=context)
-            size_left -= max_segment_size
-            current_seg_count += 1
-        
-        if (size_left > 0):
-            phent = ELFProgramHeader(segment, little_endian=self.little_endian, is64=self.is64)
-            phent.header.vaddr += current_seg_count * max_segment_size
-            phent.header.paddr += current_seg_count * max_segment_size 
-            phent.header.filesz = size_left
-            phent.header.memsz = size_left
-            if (current_seg_count > 0):
-                phent.header.align = 1
-            self.add_segment(phent=phent, 
-                             segdata=segment_data[current_seg_count * max_segment_size : current_seg_count * max_segment_size + size_left],
-                             context=context)
-
+        phent = ELFProgramHeader(segment, little_endian=self.little_endian, is64=self.is64)
+        self.add_segment(phent=phent, segdata=bytearray(segment.data()), context=context)
 
     def __add_note_segment(self, eplist, custom_note: CustomNote = None):
         note_data = bytearray(0)
@@ -212,8 +151,6 @@ class ELF():
 
         self.segmentlist.insert(0, seg_dict)
 
-        return len(seg_dict["data"])
-
     def __merge_two_segments(self, merger, mergee):
         if merger is None:
             return None
@@ -224,7 +161,7 @@ class ELF():
         alignment = max(merger['header'].header.align, mergee['header'].header.align)
         start = mergee['header'].header.vaddr
         end = merger['header'].header.vaddr + merger['header'].header.filesz
-        padding = start-end
+        padding = (start-end)
 
         # add zero padding
         merger['data'].extend(bytearray(padding))
@@ -244,8 +181,8 @@ class ELF():
         addr_check = False
         context_check = False
 
-        end = merger['header'].header.vaddr + merger['header'].header.filesz
-        start = mergee['header'].header.vaddr
+        end = (merger['header'].header.vaddr + merger['header'].header.filesz)
+        start = (mergee['header'].header.vaddr)
         addr_check = bool(((start - end) <= tol_limit) and (start != merger['header'].header.vaddr))
 
         if ignore_context:
@@ -315,39 +252,14 @@ class ELF():
         self.elfheader.header.e_phoff = self.elfheader.get_size()
         self.elfheader.header.e_shoff = 0
         self.elfheader.header.e_shnum = 0
-        self.elfheader.header.e_shstrndx = 0
         self.bstream.extend(self.elfheader.pack())
-
-        return self.elfheader
 
     def dbg_dumpsegments(self):
         '''Debug function to dump the segments of the ELF Object'''
         for seg in self.segmentlist:
             print(f"{seg['header'].header}, SIZE = {hex(len(seg['data']))} : {seg['context']}")
 
-    def  __add_rs_note_segment(self, filesize, custom_note_seg_len):
-        ''' Add RS note segment to the end of the created elf file '''
-        
-        random_string = subprocess.check_output('openssl rand 32', shell=True)
-        
-        # Ensure that the program segments are a multiple of 16 bytes
-        # for AES CBC encryption by padding with zeros,
-        # 52 is the ELF Header size (which always holds true).
-        # The size of each PHT entry is 32 bytes in case of ELF32 and 64 in case of ELF64.
-        zeros_pad = bytearray(16 - ((filesize - 52 - custom_note_seg_len) % 16))
-
-        phent = ELFProgramHeader(None, little_endian=self.little_endian, is64=self.is64)
-        phent.header.type = PT_TYPE_DICT['PT_NOTE']
-        phent.header.vaddr = 0
-        phent.header.paddr = 0
-        phent.header.filesz = len (zeros_pad + random_string)
-        phent.header.memsz = len (zeros_pad + random_string)
-
-        seg_dict = {"header": phent, "data": zeros_pad + random_string, "context": None}
-
-        self.segmentlist.append(seg_dict)
-       
-    def make_elf(self, fname, xlat_file_path, eplist, custom_note: CustomNote = None, add_rs_note = False):
+    def make_elf(self, fname, xlat_file_path, eplist, custom_note: CustomNote = None):
         '''Create the elf file and write it to the filename provided'''
         # check if elf header is added
         if not self.eh_added:
@@ -364,16 +276,13 @@ class ELF():
                 coreid=int(seg['context']), addr=seg['header'].header.paddr)
 
         # add note segments
-        cust_note_segment_length = self.__add_note_segment(eplist, custom_note)
+        self.__add_note_segment(eplist, custom_note)
 
         # generate PHT
         self.__generate_pht()
 
         # update and add elf header
         self.__update_elfh()
-
-        # this stream will represent the final binary with RS note segment
-        final_stream = bytearray()
 
         # now add PHT
         for seg in self.segmentlist:
@@ -383,35 +292,9 @@ class ELF():
         for seg in self.segmentlist:
             self.bstream.extend(seg['data'])
 
-        # if addition of random string note segment is required
-        if add_rs_note:
-            # add rs segment to the end of the segment list    
-            self.__add_rs_note_segment(len(self.bstream), cust_note_segment_length)
-            
-            # generate the modified pht
-            self.__generate_pht()
-            
-            # get the updated ELF header
-            updated_elfh = self.__update_elfh()
-            if (updated_elfh):
-                final_stream.extend(updated_elfh.pack())
-
-            # now add PHT
-            for seg in self.segmentlist:
-                final_stream.extend(seg['header'].pack())
-
-            # now add the data
-            for seg in self.segmentlist:
-                final_stream.extend(seg['data'])
-
-            # the end, now write this to a file
-            with open(fname, 'wb+') as file_p:
-                file_p.write(final_stream)
-                
-        else:
-            # the end, now write this to a file
-            with open(fname, 'wb+') as file_p:
-                file_p.write(self.bstream)
+        # the end, now write this to a file
+        with open(fname, 'wb+') as file_p:
+            file_p.write(self.bstream)
 
         return 0
 

@@ -33,6 +33,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 '''Abstraction layer for parsing arguments'''
 import argparse
 from collections import namedtuple
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from modules import desc
 
 def xip_addr_type(arg_val: str) -> tuple:

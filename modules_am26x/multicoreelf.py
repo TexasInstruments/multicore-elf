@@ -36,12 +36,14 @@ Multicore ELF module
 import os
 import struct
 import copy
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from typing import List
 from elftools.elf.elffile import ELFFile
 from .elf import ELF
-from .elf_structs import ElfConstants as ELFC
-from .consts import SSO_CORE_ID
-from .note import CustomNote
+from modules.elf_structs import ElfConstants as ELFC
+from modules.consts import SSO_CORE_ID
+from modules.note import CustomNote
 from .otfaecc_structs import OTFAConfig
 from .otfaecc_structs import OTFA_MODE_NO_ENCRYPT
 from .otfaecc_structs import OTFA_MODE_GCM

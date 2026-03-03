@@ -37,11 +37,11 @@ import sys
 import json 
 import binascii
 from typing import List
-from modules.otfaecc_structs import * 
-from modules.args import get_args
-from modules.multicoreelf import MultiCoreELF, OTFAECCMProcessor
+from modules_am26x.otfaecc_structs import *
+from modules_am26x.args import get_args
+from modules_am26x.multicoreelf import MultiCoreELF, OTFAECCMProcessor
 from modules.note import CustomNote
-from modules.crypto_hkdf import hkdf
+from modules_am26x.crypto_hkdf import hkdf
 
 def generate_image(arguments, m_elf: MultiCoreELF, add_rs_note = False, custom_note: CustomNote = None):
     '''Helper function to generate image'''
