@@ -6,7 +6,7 @@ Takes multiple ELF files as input and combines their segments to create a minima
 
 The tool has been refactored into SoC-specific implementations to allow better customization and maintenance:
 
-- **genimage_am26x.py**: For AM26x SoCs (uses modules_am26x/)
+- **genimage.py**: For AM26x SoCs (uses modules_am26x/)
 - **genimage_am64x.py**: For AM64x & AM243x SoCs (uses modules_am64/)
 
 Each variant has its own module directory with SoC-specific implementations of the ELF generation logic.
@@ -58,7 +58,7 @@ pip install -r requirements.txt
 
 - The script should be cloned inside {MCU_SDK_PATH}/tools/boot path.
 
-- The appropriate SoC-specific genimage script (genimage_am26x.py or genimage_am64x.py) is called in the makefile of all examples and tests. It generates a .mcelf image for all the projects.
+- The appropriate SoC-specific genimage script (genimage.py for am26xx devices or genimage_am64x.py) is called in the makefile of all examples and tests. It generates a .mcelf image for all the projects.
 
 - Macros for arguments 3-8 are defined in devconfig/devconfig.mak file.
 
