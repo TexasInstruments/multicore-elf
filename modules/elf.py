@@ -6,6 +6,8 @@ from .addtranslate import address_translate as xlat
 from .note import get_note_vendor, get_note_segment_map, \
                 get_note_custom, get_note_entrypoints, CustomNote
 
+MAX_SEGMENT_SIZE = 62 * 1024  # 62KB
+
 class ELFHeader():
     '''ELF Header'''
     def __init__(self, data, little_endian = True):
@@ -216,6 +218,41 @@ class ELF():
 
         return out_list
 
+    def __split_segment(self, seg):
+        '''Split a single segment into chunks of at most MAX_SEGMENT_SIZE bytes'''
+        chunks = []
+        data = seg['data']
+        orig_header = seg['header'].header
+        context = seg['context']
+        offset = 0
+        while offset < len(data):
+            chunk_data = data[offset:offset + MAX_SEGMENT_SIZE]
+            chunk_size = len(chunk_data)
+            new_ph = ELFProgramHeader(None, little_endian=self.little_endian, is64=self.is64)
+            new_ph.header.type = orig_header.type
+            if self.is64:
+                new_ph.header.flags_64 = orig_header.flags_64
+            else:
+                new_ph.header.flags_32 = orig_header.flags_32
+            new_ph.header.vaddr = orig_header.vaddr + offset
+            new_ph.header.paddr = orig_header.paddr + offset
+            new_ph.header.filesz = chunk_size
+            new_ph.header.memsz = chunk_size
+            new_ph.header.align = orig_header.align
+            chunks.append({"header": new_ph, "data": bytearray(chunk_data), "context": context})
+            offset += chunk_size
+        return chunks
+
+    def __split_large_segments(self):
+        '''Split segments larger than MAX_SEGMENT_SIZE into smaller chunks'''
+        new_list = []
+        for seg in self.segmentlist:
+            if seg['header'].header.filesz > MAX_SEGMENT_SIZE:
+                new_list.extend(self.__split_segment(seg))
+            else:
+                new_list.append(seg)
+        self.segmentlist = new_list
+
     def merge_segments(self, tol_limit=0, segmerge=False, ignore_context=False):
         '''Runs the merge operation on the internal list of segments'''
         # sort the segments
@@ -226,6 +263,8 @@ class ELF():
                                         ignore_context=ignore_context)
 
         self.segmentlist = merged_list
+        # split segments larger than MAX_SEGMENT_SIZE into smaller chunks
+        self.__split_large_segments()
 
     def __generate_pht(self):
         # process offsets
